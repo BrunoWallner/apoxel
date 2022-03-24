@@ -1,1 +1,1 @@
-A multiplayer Post apocalyptic voxel-based game.
+A multiplayer post-apocalyptic voxel-based game.
