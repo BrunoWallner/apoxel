@@ -1,4 +1,5 @@
 use tokio::sync::mpsc;
+use protocol::Coord;
 
 #[derive(Clone, Debug)]
 pub enum Request {
@@ -8,15 +9,17 @@ pub enum Request {
     Login{token: [u8; 64], sender: mpsc::Sender<bool>},
     // input token to log off, returns true if success
     Logoff{token: [u8; 64], sender: mpsc::Sender<bool>},
+
+    RequestCoords(mpsc::Sender<Vec<Coord>>)
 }
 
 // this part runs on main thread
 #[derive(Clone, Debug)]
-pub struct Handler {
+pub struct Handle {
     pub player_sender: mpsc::Sender<Request>
     // todo, chunk sender to request chunk loading
 }
-impl Handler {
+impl Handle {
     pub fn init() -> Self {
         let (sender, receiver) = mpsc::channel(4096);
 
@@ -25,7 +28,7 @@ impl Handler {
             init(receiver).await;
         });
 
-        Handler {
+        Handle {
             player_sender: sender,
         }
     }
@@ -65,6 +68,14 @@ impl Handler {
         ).await.unwrap();
         rx.recv().await.unwrap()
     }
+
+    pub async fn get_coords(&self) -> Vec<Coord> {
+        let (tx, mut rx) = mpsc::channel(1);
+        self.player_sender.send(
+            Request::RequestCoords(tx)
+        ).await.unwrap();
+        rx.recv().await.unwrap()
+    }
 }
 
 // this runs on another task
@@ -87,6 +98,10 @@ async fn init(mut receiver: mpsc::Receiver<Request>) {
                 Logoff{token, sender} => {
                     let success = player_list.logoff(&token);
                     sender.send(success).await.unwrap();
+                },
+                RequestCoords(sender) => {
+                    let coords = player_list.get_coords();
+                    sender.send(coords).await.unwrap();
                 }
             },
             None => {

@@ -1,12 +1,16 @@
 use tokio::io;
+use tokio::net::tcp::{OwnedWriteHalf, OwnedReadHalf};
 use tokio::net::{TcpStream, TcpListener};
+use tokio::sync::mpsc;
 
 mod config;
 use config::Config;
 
-mod logger;
-
+mod event;
 mod player;
+mod chunks;
+
+mod logger;
 
 use protocol::{header::Header, reader, writer};
 
@@ -19,42 +23,49 @@ async fn main() -> io::Result<()> {
     let listener = TcpListener::bind(config.connection.ip.clone() + ":" + &config.connection.port.to_string()).await?;
     log::info!("server listenes on: {}", config.connection.ip + ":" + &config.connection.port.to_string());
 
-    // accept and handle incoming connections
-    let players = player::handler::Handler::init();
+    let players = player::handle::Handle::init();
+    let chunks = chunks::handle::Handle::init(players.clone());
+
     loop {
+        // communication between reader and writer
+        let write_broadcaster = event::broadcaster::BroadCaster::init();
+        let (write_tx, write_rx) = mpsc::channel(1024);
+        write_broadcaster.register(write_tx).await;
+
         let player_handler = players.clone();
-        let (mut socket, addr) = listener.accept().await?;
+        let broadcast_handler = write_broadcaster.clone();
+
+        let (socket, _addr) = listener.accept().await?;
+        let (r, w) = TcpStream::into_split(socket);
+        let mut reader = reader::Reader::new(r);
+        let mut writer = writer::Writer::new(w);
 
         tokio::spawn(async move {
-            let result = handle(
-                &mut socket, 
-                player_handler
+            let _ = handle_read(
+                &mut reader, 
+                player_handler,
+                broadcast_handler,
             ).await;
+        });
 
-            match result {
-                Ok(_) => {},
-                Err(e) => match e.kind() {
-                    io::ErrorKind::BrokenPipe => {
-                        log::info!("{} lost connection", addr)
-                    }
-                    _ => (),
-                }
-            }
+        tokio::spawn(async move {
+            let _ = handle_write(
+                &mut writer, 
+                write_rx,
+            ).await;
         });
     }
 }
 
-async fn handle(
-    socket: &mut TcpStream,
-    player_handler: player::handler::Handler,
+use event::Event;
+use protocol::event::Event as ExternalEvent;
 
+async fn handle_read(
+    reader: &mut reader::Reader<OwnedReadHalf>,
+    player_handler: player::handle::Handle,
+    broadcast_handler: event::broadcaster::BroadCaster,
 ) -> io::Result<()> {
-    let (r, w) = TcpStream::split(socket);
-
-    let mut reader = reader::Reader::new(r);
-    let mut writer = writer::Writer::new(w);
-
-    // handle infinite amount instructions
+    // handle infinite amount of instructions
     loop {
         let header: Header = reader.get_header().await?;
 
@@ -62,12 +73,36 @@ async fn handle(
             Header::Register => {
                 let name = reader.get_string().await?;
                 if let Some(token) = player_handler.register(name).await {
-                    writer.send_token(&token).await?;
+                    broadcast_handler.send(Event::External(ExternalEvent::Token(token))).await;
                 } else {
-                    writer.send_error(&protocol::error::Error::Register).await?;
+                    broadcast_handler.send(Event::External(ExternalEvent::Error(protocol::error::Error::Register))).await;
                 }
             }
             _ => ()
+        }
+    }
+}
+
+async fn handle_write(
+    writer: &mut writer::Writer<OwnedWriteHalf>,
+    mut ev_receiver: mpsc::Receiver<Event>,
+) -> io::Result<()> {
+    loop {
+        match ev_receiver.recv().await {
+            Some(e) => match e {
+                Event::External(ev) => {
+                    use ExternalEvent::*;
+                    match ev {
+                        Error(e) => {writer.send_error(&e).await?}
+                        Token(t) => {writer.send_token(&t).await?}
+                        _ => (),
+                    }
+                }
+                _ => (),
+            }
+            None => {
+                return Err(io::Error::new(io::ErrorKind::BrokenPipe, "broken pipe"));
+            }
         }
     }
 }

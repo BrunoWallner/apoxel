@@ -1,10 +1,13 @@
-pub mod handler;
+pub mod handle;
 use protocol::Token;
+use protocol::Coord;
 
 #[derive(Hash, Clone, Debug)]
 pub struct Player {
     pub name: String,
     pub token: Token,
+    pub coord: Coord,
+
     pub health: u8,
 
     pub online: bool,
@@ -15,6 +18,7 @@ impl Player {
         Self {
             name,
             token,
+            coord: [0, 0, 0],
             health: 100,
 
             online: false,
@@ -49,6 +53,10 @@ impl PlayerList {
         } else {
             return None
         }
+    }
+
+    pub fn get_coords(&self) -> Vec<Coord> {
+        self.list.iter().map(|x| x.coord).collect()
     }
 
     pub fn login(&mut self, token: &[u8; 64]) -> bool {
