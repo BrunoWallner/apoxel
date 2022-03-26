@@ -12,7 +12,10 @@ pub enum Request {
 
     Move{token: Token, pos: PlayerCoord},
 
-    RequestCoords(mpsc::Sender<Vec<PlayerCoord>>)
+    ContainsToken{token: Token, sender: mpsc::Sender<bool>},
+
+    RequestCoords(mpsc::Sender<Vec<PlayerCoord>>),
+    RequestPlayer{token: Token, sender: mpsc::Sender<Option<super::Player>>},
 }
 
 // this part runs on main thread
@@ -70,6 +73,30 @@ impl Handle {
         rx.recv().await.unwrap()
     }
 
+    pub async fn get_player(&self, token: Token) -> Option<super::Player> {
+        let (tx, mut rx) = mpsc::channel(1);
+        self.player_sender.send(
+            Request::RequestPlayer{
+                token,
+                sender: tx,
+            }
+        ).await.unwrap();
+        rx.recv().await.unwrap()
+    }
+
+    pub async fn contains_token(&self, token: Token) -> bool {
+        let (tx, mut rx) = mpsc::channel(1);
+        self.player_sender.send(
+            Request::ContainsToken{
+                token,
+                sender: tx,
+            }
+        ).await.unwrap();
+        rx.recv().await.unwrap()
+    }
+
+
+
     pub async fn move_player(&self, token: Token, pos: PlayerCoord) {
         self.player_sender.send(
             Request::Move{token, pos}
@@ -104,6 +131,14 @@ async fn init(mut receiver: mpsc::Receiver<Request>) {
                 },
                 Logoff{token, sender} => {
                     let success = player_list.logoff(&token);
+                    sender.send(success).await.unwrap();
+                },
+                RequestPlayer{token, sender} => {
+                    let player = player_list.get_player(&token);
+                    sender.send(player).await.unwrap();
+                }
+                ContainsToken{token, sender} => {
+                    let success = player_list.contains_token(&token).is_some();
                     sender.send(success).await.unwrap();
                 },
                 RequestCoords(sender) => {

@@ -57,7 +57,21 @@ impl PlayerList {
     }
 
     pub fn get_coords(&self) -> Vec<PlayerCoord> {
-        self.list.iter().map(|x| x.pos).collect()
+        let mut buf: Vec<PlayerCoord> = Vec::new();
+        self.list.iter().for_each(|player| {
+            if player.online {
+                buf.push(player.pos)
+            }
+        });
+        buf
+    }
+
+    pub fn get_player(&self, token: &Token) -> Option<Player> {
+        if let Some(index) = self.contains_token(token) {
+            return Some(self.list[index].clone());
+        } else {
+            return None;
+        }
     }
 
     pub fn login(&mut self, token: &Token) -> bool {

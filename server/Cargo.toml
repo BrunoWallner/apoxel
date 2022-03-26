@@ -7,8 +7,8 @@ edition = "2021"
 protocol = { path = "../protocol" } 
 
 tokio = { version = "1.17.0", features = ["full"] }
-crossbeam-queue = "0.3.5"
 
+lazy_static = "1.4.0"
 toml = "0.5.8"
 serde = { version = "1.0.136", features = ["derive"] }
 rand = "0.8.5"

@@ -2,6 +2,7 @@ use crate::player;
 use super::Handle;
 use protocol::{Coord, PlayerCoord};
 use super::coord_converter;
+use crate::config::CONFIG;
 
 use std::time::Duration;
 use tokio::{task, time};
@@ -37,14 +38,24 @@ async fn unload(
         // check if it is in view of anyone
         for player in player_coords.iter() {
             let mut in_view: bool = false;
-            if player[0].pow(2) + player[2].pow(2) + player[1].pow(2) <= 10_i64.pow(2) {
+            //let distance = (x2 x1)2 + (y2 y1)2 + (z2 z1)2;
+            let distance = (( 
+                (player[0] - chunk[0]).pow(2) +
+                (player[1] - chunk[1]).pow(2) +
+                (player[2] - chunk[2]).pow(2)
+            ) as f64).sqrt() as i64;
+            if distance <= CONFIG.chunks.render_distance as i64 {
                 in_view = true;
             }
             if !in_view {
                 to_unload.push(*chunk);
             }
         }
+        if player_coords.is_empty() {
+            to_unload.push(*chunk);
+        }
     }
 
+    //println!("unload amount: {}", to_unload.len());
     chunk_handle.unload(to_unload).await;
 }

@@ -9,8 +9,7 @@ pub fn setup() -> Result<(), fern::InitError> {
             ))
         })
         .level(log::LevelFilter::Debug)
-        .chain(std::io::stderr())
-        .chain(fern::log_file("output.log")?)
+        .chain(std::io::stdout())
         .apply()?;
     Ok(())
 }

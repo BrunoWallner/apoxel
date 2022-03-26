@@ -1,8 +1,8 @@
 use noise::{OpenSimplex, NoiseFn, Seedable};
 
 use super::CHUNK_SIZE;
-use super::{Chunk, SuperChunk};
-use super::blocks::Block;
+use protocol::chunk::{Chunk, SuperChunk};
+use protocol::chunk::Block;
 
 pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
     let key = chunk.coord;

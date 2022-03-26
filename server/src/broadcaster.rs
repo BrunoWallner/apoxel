@@ -1,18 +1,18 @@
-use super::{Event, InternalEvent, ExternalEvent};
 use tokio::sync::mpsc;
+use std::{marker::{Send, Sync}, fmt::Debug};
 
 #[derive(Debug)]
-pub enum Instruction {
+pub enum Instruction<Event> {
     Send(Event),
     Register(mpsc::Sender<Event>),
 }
 
 // both global and client bound queue
 #[derive(Clone, Debug)]
-pub struct BroadCaster {
-    sender: mpsc::Sender<Instruction>,
+pub struct BroadCaster<Event: Send> {
+    sender: mpsc::Sender<Instruction<Event>>,
 }
-impl BroadCaster {
+impl<Event: 'static + Send + Sync + Clone + Debug> BroadCaster<Event> {
     pub fn init() -> Self {
         let (tx, rx) = mpsc::channel(4096);
         tokio::spawn(async move {
@@ -32,7 +32,7 @@ impl BroadCaster {
     }
 }
 
-async fn init(mut receiver: mpsc::Receiver<Instruction>) {
+async fn init<Event: 'static + Send + Sync + Clone + Debug>(mut receiver: mpsc::Receiver<Instruction<Event>>) {
     let mut senders: Vec<mpsc::Sender<Event>> = Vec::new();
 
     loop {
