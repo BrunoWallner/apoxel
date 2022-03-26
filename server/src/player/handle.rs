@@ -1,23 +1,24 @@
 use tokio::sync::mpsc;
-use protocol::Coord;
+use protocol::{Token, PlayerCoord};
 
 #[derive(Clone, Debug)]
 pub enum Request {
     // input name and get token back if success
-    Register{name: String, sender: mpsc::Sender<Option<[u8; 64]>>},
+    Register{name: String, sender: mpsc::Sender<Option<Token>>},
     // input token to log off, returns true if success
-    Login{token: [u8; 64], sender: mpsc::Sender<bool>},
+    Login{token: Token, sender: mpsc::Sender<bool>},
     // input token to log off, returns true if success
-    Logoff{token: [u8; 64], sender: mpsc::Sender<bool>},
+    Logoff{token: Token, sender: mpsc::Sender<bool>},
 
-    RequestCoords(mpsc::Sender<Vec<Coord>>)
+    Move{token: Token, pos: PlayerCoord},
+
+    RequestCoords(mpsc::Sender<Vec<PlayerCoord>>)
 }
 
 // this part runs on main thread
 #[derive(Clone, Debug)]
 pub struct Handle {
-    pub player_sender: mpsc::Sender<Request>
-    // todo, chunk sender to request chunk loading
+    player_sender: mpsc::Sender<Request>,
 }
 impl Handle {
     pub fn init() -> Self {
@@ -34,7 +35,7 @@ impl Handle {
     }
 
     // returns token
-    pub async fn register(&self, name: String) -> Option<[u8; 64]> {
+    pub async fn register(&self, name: String) -> Option<Token> {
         let (tx, mut rx) = mpsc::channel(1);
         self.player_sender.send(
             Request::Register {
@@ -46,7 +47,7 @@ impl Handle {
     }
 
     // returns true if success
-    pub async fn login(&self, token: [u8; 64]) -> bool {
+    pub async fn login(&self, token: Token) -> bool {
         let (tx, mut rx) = mpsc::channel(1);
         self.player_sender.send(
             Request::Login {
@@ -58,10 +59,10 @@ impl Handle {
     }
 
     // returns true if success
-    pub async fn logoff(&self, token: [u8; 64]) -> bool {
+    pub async fn logoff(&self, token: Token) -> bool {
         let (tx, mut rx) = mpsc::channel(1);
         self.player_sender.send(
-            Request::Logoff {
+            Request::Logoff{
                 token,
                 sender: tx,
             }
@@ -69,7 +70,13 @@ impl Handle {
         rx.recv().await.unwrap()
     }
 
-    pub async fn get_coords(&self) -> Vec<Coord> {
+    pub async fn move_player(&self, token: Token, pos: PlayerCoord) {
+        self.player_sender.send(
+            Request::Move{token, pos}
+        ).await.unwrap();
+    }
+
+    pub async fn get_coords(&self) -> Vec<PlayerCoord> {
         let (tx, mut rx) = mpsc::channel(1);
         self.player_sender.send(
             Request::RequestCoords(tx)
@@ -102,6 +109,9 @@ async fn init(mut receiver: mpsc::Receiver<Request>) {
                 RequestCoords(sender) => {
                     let coords = player_list.get_coords();
                     sender.send(coords).await.unwrap();
+                },
+                Move{token, pos} => {
+                    player_list.move_player(&token, pos);
                 }
             },
             None => {

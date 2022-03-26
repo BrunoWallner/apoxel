@@ -2,6 +2,8 @@ use protocol::Coord;
 use super::{Handle, Chunk};
 use std::collections::HashMap;
 use super::super::generation;
+use crate::player;
+use super::coord_converter;
 
 pub async fn load(
     coords: Vec<Coord>,
@@ -37,7 +39,26 @@ pub async fn load(
 use std::time::Duration;
 use tokio::{task, time};
 
-pub async fn init_load_requester(handler: Handle) {
+pub async fn player_chunk_loader(chunk_handle: Handle, player_handle: player::handle::Handle) {
+    let forever = task::spawn(async move {
+        let mut interval = time::interval(Duration::from_millis(1000));
+
+        loop {
+            interval.tick().await;
+            
+            let p_coords = player_handle.get_coords().await;
+            let p_coords = coord_converter(p_coords);
+
+            for coord in p_coords.iter() {
+                chunk_handle.load(vec![*coord]).await;
+            }
+        }
+    });
+
+    forever.await.unwrap();
+}
+
+pub async fn init_load_flusher(handler: Handle) {
     let forever = task::spawn(async move {
         let mut interval = time::interval(Duration::from_millis(1000));
 

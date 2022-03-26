@@ -1,12 +1,13 @@
 pub mod handle;
 use protocol::Token;
-use protocol::Coord;
+use protocol::PlayerCoord;
 
-#[derive(Hash, Clone, Debug)]
+
+#[derive(Clone, Debug)]
 pub struct Player {
     pub name: String,
     pub token: Token,
-    pub coord: Coord,
+    pub pos: PlayerCoord,
 
     pub health: u8,
 
@@ -18,7 +19,7 @@ impl Player {
         Self {
             name,
             token,
-            coord: [0, 0, 0],
+            pos: [0.0, 100.0, 0.0],
             health: 100,
 
             online: false,
@@ -42,7 +43,7 @@ impl PlayerList {
         }
     }
 
-    pub fn register(&mut self, name: String) -> Option<[u8; 64]> {
+    pub fn register(&mut self, name: String) -> Option<Token> {
         // only Ok because have custom implementation of Eq for Player
         // that only checks name
         if self.contains_name(&name).is_none() {
@@ -55,11 +56,11 @@ impl PlayerList {
         }
     }
 
-    pub fn get_coords(&self) -> Vec<Coord> {
-        self.list.iter().map(|x| x.coord).collect()
+    pub fn get_coords(&self) -> Vec<PlayerCoord> {
+        self.list.iter().map(|x| x.pos).collect()
     }
 
-    pub fn login(&mut self, token: &[u8; 64]) -> bool {
+    pub fn login(&mut self, token: &Token) -> bool {
         if let Some(i) = self.contains_token(token) {
             self.list[i].online = true;
             return true;
@@ -68,7 +69,7 @@ impl PlayerList {
         }
     }
 
-    pub fn logoff(&mut self, token: &[u8; 64]) -> bool {
+    pub fn logoff(&mut self, token: &Token) -> bool {
         if let Some(i) = self.contains_token(token) {
             self.list[i].online = false;
             return true;
@@ -77,7 +78,14 @@ impl PlayerList {
         }
     }
 
-    pub fn contains_token(&self, token: &[u8; 64]) -> Option<usize> {
+    // TODO implement max speed
+    pub fn move_player(&mut self, token: &Token, pos: PlayerCoord) {
+        if let Some(i) = self.contains_token(token) {
+            self.list[i].pos = pos;
+        }
+    }
+
+    pub fn contains_token(&self, token: &Token) -> Option<usize> {
         for (i, val) in self.list.iter().enumerate() {
             if &val.token == token {
                 return Some(i);
@@ -99,8 +107,8 @@ impl PlayerList {
 fn get_token() -> Token {
     use rand::Rng;
     let mut rng = rand::thread_rng();
-    let mut token = [0_u8; 64];
-    for i in 0..64 {
+    let mut token: Token = [0_u8; 16];
+    for i in 0..16 {
         token[i] = rng.gen();
     }
     

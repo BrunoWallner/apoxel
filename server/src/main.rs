@@ -93,8 +93,8 @@ async fn handle_write(
                 Event::External(ev) => {
                     use ExternalEvent::*;
                     match ev {
-                        Error(e) => {writer.send_error(&e).await?}
-                        Token(t) => {writer.send_token(&t).await?}
+                        Error(e) => {writer.send_event(&Error(e)).await?}
+                        Token(t) => {writer.send_event(&Token(t)).await?}
                         _ => (),
                     }
                 }

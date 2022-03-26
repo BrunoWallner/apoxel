@@ -1,6 +1,7 @@
 use crate::player;
 use super::Handle;
-use protocol::Coord;
+use protocol::{Coord, PlayerCoord};
+use super::coord_converter;
 
 use std::time::Duration;
 use tokio::{task, time};
@@ -12,6 +13,7 @@ pub async fn init_unloader(chunk_handle: Handle, player_handle: player::handle::
         loop {
             interval.tick().await;
             let p_coords = player_handle.get_coords().await;
+            let p_coords = coord_converter(p_coords);
             let c_coords = chunk_handle.get_keys().await;
             unload(
                 p_coords,

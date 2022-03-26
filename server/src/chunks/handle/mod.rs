@@ -3,11 +3,20 @@ mod unloader;
 
 use tokio::sync::mpsc;
 use std::collections::HashMap;
-use protocol::Coord;
+use protocol::{Coord, PlayerCoord};
 use super::structure::Structure;
 use super::{Chunk, SuperChunk};
+use super::get_chunk_coords;
 
 use crate::player::handle::Handle as PlayerHandle;
+
+fn coord_converter(coords: Vec<PlayerCoord>) -> Vec<Coord> {
+    let mut buf: Vec<Coord> = Vec::with_capacity(coords.len());
+    for coord in coords.iter() {
+        buf.push( get_chunk_coords(&[coord[0] as i64, coord[1] as i64, coord[2] as i64]).0 )
+    }
+    buf
+}
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
@@ -88,7 +97,13 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
     // loader
     let h = handle.clone();
     tokio::spawn(async move {
-        loader::init_load_requester(h).await;
+        loader::init_load_flusher(h).await;
+    });
+
+    let h = handle.clone();
+    let p = player_handle.clone();
+    tokio::spawn(async move {
+        loader::player_chunk_loader(h, p).await;
     });
 
     // unloader
@@ -102,6 +117,7 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
     let mut load_queue: Vec<Coord> = Vec::new();
 
     loop {
+        println!("chunk_len: {}", chunks.len());
         match receiver.recv().await {
             Some(i) => match i {
                 Instruction::Load(mut coords) => {
