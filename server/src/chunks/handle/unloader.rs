@@ -1,13 +1,13 @@
 use crate::player;
 use super::Handle;
-use protocol::{Coord, PlayerCoord};
+use protocol::Coord;
 use super::coord_converter;
 use crate::config::CONFIG;
 
 use std::time::Duration;
 use tokio::{task, time};
 
-pub async fn init_unloader(chunk_handle: Handle, player_handle: player::handle::Handle) {
+pub async fn init(chunk_handle: Handle, player_handle: player::handle::Handle) {
     let forever = task::spawn(async move {
         let mut interval = time::interval(Duration::from_millis(1000));
 

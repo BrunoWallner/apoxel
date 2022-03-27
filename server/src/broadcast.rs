@@ -9,10 +9,10 @@ pub enum Instruction<Event> {
 
 // both global and client bound queue
 #[derive(Clone, Debug)]
-pub struct BroadCaster<Event: Send> {
+pub struct BroadCast<Event: Send> {
     sender: mpsc::Sender<Instruction<Event>>,
 }
-impl<Event: 'static + Send + Sync + Clone + Debug> BroadCaster<Event> {
+impl<Event: 'static + Send + Sync + Clone + Debug> BroadCast<Event> {
     pub fn init() -> Self {
         let (tx, rx) = mpsc::channel(4096);
         tokio::spawn(async move {

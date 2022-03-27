@@ -85,7 +85,7 @@ pub async fn player_chunk_loader(chunk_handle: Handle, player_handle: player::ha
     forever.await.unwrap();
 }
 
-pub async fn init_load_flusher(handler: Handle) {
+pub async fn init_flusher(handler: Handle) {
     let forever = task::spawn(async move {
         let mut interval = time::interval(Duration::from_millis(10));
 

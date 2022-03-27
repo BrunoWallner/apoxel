@@ -1,10 +1,7 @@
 use tokio::io::{self, AsyncRead, AsyncReadExt};
 use std::marker::Unpin;
 
-use crate::header::Header;
-use crate::error::Error;
-use crate::Token;
-
+use crate::event::Event;
 pub struct Reader<T: AsyncRead + Unpin> {
     socket: T,
 }
@@ -31,39 +28,20 @@ impl<T: AsyncRead + Unpin> Reader<T> {
         }
     }
 
-    pub async fn get_header(&mut self) -> io::Result<Header> {
-        let mut buf: [u8; 1] = [0; 1];
-        self.read(&mut buf).await?;
-        Ok(Header::from_value(buf[0]))
-    }
-
-    pub async fn get_string(&mut self) -> io::Result<String> {
+    pub async fn get_event(&mut self) -> io::Result<Event> {
         let mut buffer: Vec<u8> = Vec::new();
-        'get_string: loop {
+        'get_bytes: loop {
             let mut buf: [u8; 255] = [0; 255];
-            self.socket.read(&mut buf).await?;
-            let completed = buf[0] == 0x01;
+            self.read(&mut buf).await?;
+            let completed = buf[0] == 0x01 || buf[1] <= 2;
             if completed {
-                break 'get_string;
+                break 'get_bytes;
             }
 
             buffer.append(&mut buf[2..buf[1] as usize].to_vec());
         }
 
-        Ok(String::from(String::from_utf8_lossy(&buffer)))
-    }
-
-    pub async fn get_token(&mut self) -> io::Result<Token> {
-        let mut buf = [0_u8; 64];
-        self.read(&mut buf).await?;
-
-        Ok(buf)
-    }
-
-    pub async fn get_error(&mut self) -> io::Result<Error> {
-        let mut buf = [0_u8; 1];
-        self.read(&mut buf).await?;
-
-        Ok(Error::from_value(buf[0]))
+        let event: Event = bincode::deserialize(&buffer[..]).unwrap_or(Event::Invalid);
+        Ok(event)
     }
 }
