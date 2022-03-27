@@ -1,54 +1,49 @@
-mod writer;
-use writer::Instruction;
-
+mod communication;
 use tokio::net::TcpStream;
+use protocol::event::Event as TcpEvent;
+use futures_lite::future;
 
-use std::error::Error;
+use communication::event_queue::Queue;
 
-use protocol::{Token, reader, event::Event};
+use bevy::prelude::*;
 
-use std::time::Duration;
-use std::thread::sleep;
 
+pub struct Communication {
+    pub bridge: communication::bridge::Bridge,
+    pub event_queue: Queue,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let stream = TcpStream::connect("0.0.0.0:8000").await?;
-    let (read, write) = stream.into_split();
-    let mut reader = reader::Reader::new(read);
-    let mut writer = writer::Writer::init(write);
+async fn main() {
+    let socket = TcpStream::connect("0.0.0.0:8000").await.unwrap();
+    let (bridge, event_queue) = communication::init(socket).await;
 
-    writer.sender.send(Instruction::Register(String::from("luc23a2d"))).await?;
+    bridge.push_tcp(TcpEvent::Register{name: String::from("luca")}).await;
 
+    let com = Communication{bridge, event_queue};
 
-    let writer_clone = writer.clone();
-    #[allow(unreachable_code)]
-    tokio::spawn(async move {
-        let mut token: Option<Token> = None;
-        loop {
-            let event = reader.get_event().await?;
-            match event {
-                Event::Token(t) => {
-                    token = Some(t);
-                    writer_clone.sender.send(Instruction::Login(t)).await.unwrap();
-                }
-                Event::ChunkUpdate(chunk) => {
-                    println!("recieved chunk_update");
-                }
-                Event::Error(e) => {
-                    println!("got error: {:?}", e);
-                }
-                _ => ()
-            }
-        }
-        Ok::<_, tokio::io::Error>(())
+    App::new()
+        .insert_resource(com)
+        .add_startup_system(setup)
+        .add_system(event_pull)
+        .add_plugins(DefaultPlugins)
+        .run();
+}
+
+fn setup(
+    mut cmds: Commands,
+) {
+    cmds.insert_resource(WindowDescriptor {
+        title: "Broxel".to_string(), 
+        width: 1200.0, 
+        height: 800.0, 
+        ..default()
     });
+}
 
-    let mut x: f64 = 0.0;
-    loop {
-        writer.sender.send(Instruction::Move([x, 100.0, 0.0])).await?;
-        x += 1.0;
-        sleep(Duration::from_millis(25));
-    }
-    Ok(())
+fn event_pull(
+    communication: Res<Communication>
+) {
+    let ev = future::block_on(communication.event_queue.pull());
+    //println!("got event: {:?}", ev);
 }
