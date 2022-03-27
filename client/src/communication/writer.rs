@@ -1,15 +1,16 @@
 
 use protocol::{event::Event as TcpEvent, writer::Writer};
 use tokio::net::tcp::OwnedWriteHalf;
-use tokio::sync::mpsc;
+
+use crossbeam::channel;
 
 pub fn init(
-    mut tcp_receiver: mpsc::Receiver<TcpEvent>,
+    tcp_receiver: channel::Receiver<TcpEvent>,
     mut writer: Writer<OwnedWriteHalf>,
 ) {
     tokio::spawn(async move {
         loop {
-            let event = tcp_receiver.recv().await.unwrap();
+            let event = tcp_receiver.recv().unwrap();
             writer.send_event(&event).await.unwrap();
         }
     });

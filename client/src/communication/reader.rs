@@ -14,15 +14,16 @@ pub fn init(
             match event {
                 // when successfull register
                 Event::Token(t) => {
-                    bridge.push_game(GameEvent::Token(t)).await;
-                    bridge.push_tcp(Event::Login{token: t}).await;
+                    bridge.push_game(GameEvent::Token(t));
+                    bridge.push_tcp(Event::Login{token: t});
                     // TODO: save token
                 }
-                Event::ChunkUpdate(_chunk) => {
+                Event::ChunkUpdate(chunk) => {
+                    bridge.push_game(GameEvent::ChunkUpdate(chunk));
                 }
                 Event::Error(e) => {
-                    println!("got error: {:?}", e);
-                }
+                    bridge.push_game(GameEvent::Error(e));
+                }   
                 _ => ()
             }
         }

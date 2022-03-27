@@ -1,16 +1,17 @@
 use protocol::event::Event as TcpEvent;
-use tokio::sync::mpsc;
 use super::GameEvent;
+
+use crossbeam::channel;
 
 #[derive(Clone, Debug)]
 pub struct Bridge {
-    tcp_sender: mpsc::Sender<TcpEvent>,
-    game_sender: mpsc::Sender<GameEvent>,
+    tcp_sender: channel::Sender<TcpEvent>,
+    game_sender: channel::Sender<GameEvent>,
 }
 impl Bridge {
-    pub fn init() -> (Self, mpsc::Receiver<TcpEvent>, mpsc::Receiver<GameEvent>) {
-        let (tcp_tx, tcp_rx) = mpsc::channel(1024);
-        let (game_tx, game_rx) = mpsc::channel(1024);
+    pub fn init() -> (Self, channel::Receiver<TcpEvent>, channel::Receiver<GameEvent>) {
+        let (tcp_tx, tcp_rx) = channel::unbounded();
+        let (game_tx, game_rx) = channel::unbounded();
         (
             Self {tcp_sender: tcp_tx, game_sender: game_tx},
             tcp_rx,
@@ -18,10 +19,10 @@ impl Bridge {
         )
     }
 
-    pub async fn push_tcp(&self, event: TcpEvent) {
-        self.tcp_sender.send(event).await.unwrap();
+    pub fn push_tcp(&self, event: TcpEvent) {
+        self.tcp_sender.send(event).unwrap();
     }
-    pub async fn push_game(&self, event: GameEvent) {
-        self.game_sender.send(event).await.unwrap();
+    pub fn push_game(&self, event: GameEvent) {
+        self.game_sender.send(event).unwrap();
     }
 }

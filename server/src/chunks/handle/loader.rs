@@ -53,6 +53,7 @@ pub async fn player_chunk_loader(chunk_handle: Handle, player_handle: player::ha
 
             let rd = CONFIG.chunks.render_distance as i64;
             let mut load_coords: Vec<[i64; 3]> = Vec::new();
+            println!("players online: {}", p_coords.len());
             for coord in p_coords.iter() {
                 for x in -rd..rd {
                     for y in -rd..rd {
@@ -87,7 +88,7 @@ pub async fn player_chunk_loader(chunk_handle: Handle, player_handle: player::ha
 
 pub async fn init_flusher(handler: Handle) {
     let forever = task::spawn(async move {
-        let mut interval = time::interval(Duration::from_millis(10));
+        let mut interval = time::interval(Duration::from_millis(25));
 
         loop {
             interval.tick().await;
