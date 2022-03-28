@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use crate::communication::Communicator;
 use protocol::event::Event as TcpEvent;
-use protocol::chunk::CHUNK_SIZE;
 
 use super::communication::GameEvent;
 use crate::player::Player;
+use std::collections::HashMap;
 
 mod chunk;
 mod mesh;
@@ -17,23 +17,32 @@ impl Plugin for EventHandlePlugin {
         communicator.event_bridge.push_tcp(TcpEvent::Register{name: String::from("lucawer43")});
 
         app.insert_resource(communicator)
+            .insert_resource(chunk::VoxelMap{map: HashMap::default()})
             .add_system(handle_events)
             .add_system(update_player_pos)
-            //.add_system(chunk::unloader)
-            .add_system(chunk::prepare_mesh_task)
-            .add_system(chunk::apply_mesh_task);
+            .add_system(chunk::prepare_mesh_task.label("mesh_gen"))
+            .add_system(chunk::apply_mesh_task.label("mesh_gen"))
+            .add_system(
+                chunk::unloader
+                    .label("unloader")
+                    .after("mesh_gen")
+            );
     }
 }
 
 fn handle_events(
     mut cmds: Commands,
     communicator: Res<Communicator>,
+    mut voxel_map: ResMut<chunk::VoxelMap>,
 ) {
-    let evs = communicator.event_queue.pull(15);
+    let evs = communicator.event_queue.pull(5);
     for ev in evs.iter() {
         match ev {
             GameEvent::ChunkUpdate(chunk) => {
-                cmds.spawn().insert(chunk::Chunk{chunk: *chunk});
+                let coord = chunk.coord;
+                let data = chunk.data;
+                cmds.spawn().insert(chunk::Chunk{coord});
+                voxel_map.map.insert(coord, data);
             }
             _ => ()
         }

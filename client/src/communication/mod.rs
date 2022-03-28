@@ -16,6 +16,7 @@ pub struct Communicator {
 }
 impl Communicator {
     pub fn init(ip: &str) -> Self {
+        // init of client connection
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_io()
             .build()
