@@ -1,4 +1,5 @@
 use tokio::sync::mpsc;
+use std::collections::HashSet;
 use super::Event;
 
 use crate::chunks::handle::Handle as ChunkHandle;
@@ -9,6 +10,8 @@ use crate::events;
 use crate::config::CONFIG;
 
 use protocol::{
+    Coord,
+    chunk::Chunk,
     Token,
     PlayerCoord, 
     event::Event as ProtocolEvent, 
@@ -26,10 +29,9 @@ impl Handle {
         write_broadcast: BroadCast<events::Tcp>,
     ) -> Self {
         let (tx, rx) = mpsc::channel(4096);
-        chunk_handle.register_client(tx.clone()).await;
         init(rx, chunk_handle, player_handle, write_broadcast).await;
 
-        super::init_pos_requester(tx.clone()).await;
+        super::init_chunk_requester(tx.clone()).await;
 
         Self {
             sender: tx,
@@ -50,6 +52,22 @@ impl Handle {
     }
 }
 
+async fn init_chunk_rx(
+    mut rx: mpsc::Receiver<Chunk>,
+    write_broadcast: BroadCast<events::Tcp>,
+) {
+    tokio::spawn(async move {
+        loop {
+            if let Some(chunk) = rx.recv().await {
+                write_broadcast.send(events::Tcp::Protocol(ProtocolEvent::ChunkUpdate(chunk))).await;
+            } else {
+                // client disconnected
+                break;
+            }
+        }
+    });
+}
+
 async fn init(
     mut rx: mpsc::Receiver<Event>,
     chunk_handle: ChunkHandle,
@@ -60,30 +78,60 @@ async fn init(
         let mut player_pos: PlayerCoord = [0.0, 0.0, 0.0];
         let mut token: Option<Token> = None;
 
+        let (chunk_tx, chunk_rx) = mpsc::channel(1024);
+        init_chunk_rx(chunk_rx, write_broadcast.clone()).await;
+
+        let mut loaded_chunks: HashSet<Coord> = HashSet::default();
+
         loop {
             let received = rx.recv().await.unwrap();
             use Event::*;
             match received {
-                RequestPlayerPos => {
+                RequestChunks => {
                     if let Some(token) = token {
+                        // get player pos
                         if let Some(player) = player_handle.get_player(token).await {
                             player_pos = player.pos;
                         }
-                    }
-                }
-                ChunkUpdate(coord) => {
-                    let pos = protocol::chunk::get_chunk_coords(&[player_pos[0] as i64, player_pos[1] as i64, player_pos[2] as i64]).0;
-        
-                    // check if coord is in range of player
-                    let distance = (( 
-                        (pos[0] - coord[0]).pow(2) +
-                        (pos[1] - coord[1]).pow(2) +
-                        (pos[2] - coord[2]).pow(2)
-                    ) as f64).sqrt() as i64;
-        
-                    if distance <= CONFIG.chunks.render_distance as i64 {
-                        let chunk = chunk_handle.request(vec![coord]).await[0];
-                        write_broadcast.send(events::Tcp::Protocol(ProtocolEvent::ChunkUpdate(chunk))).await;
+
+                        // request chunks
+                        let chunk_pos = protocol::chunk::get_chunk_coords(&[player_pos[0] as i64, player_pos[1] as i64, player_pos[2] as i64]).0;
+                        let rd = CONFIG.chunks.render_distance as i64;
+                        let mut chunks: Vec<Coord> = Vec::new();
+                        for x in -rd..rd {
+                            for y in -rd..rd {
+                                for z in -rd..rd {
+                                    let coord = [x + chunk_pos[0], y + chunk_pos[1], z + chunk_pos[2]];
+                                    let distance = (( 
+                                        (coord[0] - chunk_pos[0]).pow(2) +
+                                        (coord[1] - chunk_pos[1]).pow(2) +
+                                        (coord[2] - chunk_pos[2]).pow(2)
+                                    ) as f64).sqrt() as i64;
+                                    if distance >= rd {
+                                        continue;
+                                    }
+                                    if !loaded_chunks.contains(&coord) {
+                                        loaded_chunks.insert(coord);
+                                        chunks.push(coord);
+                                    }
+                                }
+                            }
+                        }
+                        if !chunks.is_empty() {
+                            chunk_handle.request(chunks, token, chunk_tx.clone()).await;
+                        }
+
+                        // unload chunks
+                        for coord in loaded_chunks.clone().into_iter() {
+                            let distance = (( 
+                                (coord[0] - chunk_pos[0]).pow(2) +
+                                (coord[1] - chunk_pos[1]).pow(2) +
+                                (coord[2] - chunk_pos[2]).pow(2)
+                            ) as f64).sqrt() as i64;
+                            if distance >= (CONFIG.chunks.render_distance as i64).pow(2) {
+                                loaded_chunks.remove(&coord);
+                            }
+                        }
                     }
                 }
                 Register{name}=> {

@@ -5,8 +5,7 @@ use tokio::sync::mpsc;
 
 #[derive(Clone, Debug)]
 pub enum Event {
-    RequestPlayerPos,
-    ChunkUpdate(Coord),
+    RequestChunks,
     Register{name: String},
     Login(Token),
     Logoff,
@@ -16,14 +15,14 @@ pub enum Event {
 use std::time::Duration;
 use tokio::{task, time};
 
-async fn init_pos_requester(sender: mpsc::Sender<Event>) {
+async fn init_chunk_requester(sender: mpsc::Sender<Event>) {
     tokio::spawn(async move {
         let forever = task::spawn(async move {
-            let mut interval = time::interval(Duration::from_millis(1000));
+            let mut interval = time::interval(Duration::from_millis(250));
     
             loop {
                 interval.tick().await;
-                let _ = sender.send(Event::RequestPlayerPos).await;
+                let _ = sender.send(Event::RequestChunks).await;
             }
         });
     

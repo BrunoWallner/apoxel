@@ -3,5 +3,5 @@ ip = "0.0.0.0"
 port = 8000
 
 [chunks]
-render_distance = 5
-generations_per_cycle = 2
+render_distance = 8
+generations_per_cycle = 25

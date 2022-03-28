@@ -11,6 +11,40 @@ pub struct Chunk{
     pub chunk: protocol::chunk::Chunk,
 }
 
+pub fn unloader(
+    mut cmds: Commands,
+    mut query: QuerySet<(
+        QueryState<(Entity, &Chunk)>,
+        QueryState<(&Transform, &mut super::Player)>,
+    )>
+) {
+    let mut player_pos = Vec3::ZERO;
+    let mut player_moved: bool = false;
+    for (transform, mut player) in query.q1().iter_mut().next() {
+        player_pos = transform.translation;
+        if player.chunks_moved_since_load > 0 {
+            player_moved = true;
+            player.chunks_moved_since_load = 0;
+        }
+    }
+    if player_moved {
+        for (entity, chunk) in query.q0().iter() {
+            let coord = chunk.chunk.coord;
+            let chunk_pos = protocol::chunk::get_chunk_coords(&[player_pos[0] as i64, player_pos[1] as i64, player_pos[2] as i64]).0;
+
+            let distance = (( 
+                (coord[0] - chunk_pos[0]).pow(2) +
+                (coord[1] - chunk_pos[1]).pow(2) +
+                (coord[2] - chunk_pos[2]).pow(2)
+            ) as f64).sqrt() as i64;
+
+            if distance >= 15 {
+                cmds.entity(entity).despawn();
+            }
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct MeshTask {
     pub task: Task<Mesh>

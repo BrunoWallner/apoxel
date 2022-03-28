@@ -113,7 +113,9 @@ async fn handle_write(
                     use ProtocolEvent::*;
                     match ev {
                         Error(e) => {writer.send_event(&Error(e)).await?}
-                        ChunkUpdate(chunk) => {writer.send_event(&ChunkUpdate(chunk)).await?}
+                        ChunkUpdate(chunk) => {
+                            writer.send_event(&ChunkUpdate(chunk)).await?
+                        }
                         Token(t) => {writer.send_event(&Token(t)).await?}
                         _ => (),
                     }

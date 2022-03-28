@@ -19,6 +19,7 @@ impl Plugin for EventHandlePlugin {
         app.insert_resource(communicator)
             .add_system(handle_events)
             .add_system(update_player_pos)
+            //.add_system(chunk::unloader)
             .add_system(chunk::prepare_mesh_task)
             .add_system(chunk::apply_mesh_task);
     }
@@ -28,7 +29,7 @@ fn handle_events(
     mut cmds: Commands,
     communicator: Res<Communicator>,
 ) {
-    let evs = communicator.event_queue.pull(5);
+    let evs = communicator.event_queue.pull(15);
     for ev in evs.iter() {
         match ev {
             GameEvent::ChunkUpdate(chunk) => {

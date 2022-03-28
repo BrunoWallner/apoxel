@@ -2,15 +2,13 @@ mod loader;
 mod unloader;
 
 use tokio::sync::mpsc;
-use std::collections::HashMap;
-use protocol::{Coord, PlayerCoord};
+use std::collections::{HashMap, HashSet};
+use protocol::{Token, Coord, PlayerCoord};
 use protocol::chunk::Structure;
 use protocol::chunk::{Chunk, SuperChunk};
 use protocol::chunk::get_chunk_coords;
-use crate::client::Event as ClientEvent;
 
 use crate::player::handle::Handle as PlayerHandle;
-use crate::config::CONFIG;
 
 fn coord_converter(coords: Vec<PlayerCoord>) -> Vec<Coord> {
     let mut buf: Vec<Coord> = Vec::with_capacity(coords.len());
@@ -20,15 +18,12 @@ fn coord_converter(coords: Vec<PlayerCoord>) -> Vec<Coord> {
     buf
 }
 
-// to broadcast chunkupdates, so it can be known if one should request
-use crate::broadcast::BroadCast;
-
 #[derive(Clone, Debug)]
 pub enum Instruction {
-    Load(Vec<Coord>),
+    Load,
     Unload(Vec<Coord>),
-    FlushLoadQueue,
-    RequestChunks{coords: Vec<Coord>, sender: mpsc::Sender<Vec<Chunk>>},
+
+    RequestChunks{chunks: Vec<Coord>, token: Token, sender: mpsc::Sender<Chunk>},
 
     // for unload detection
     RequestKeys(mpsc::Sender<Vec<Coord>>),
@@ -38,10 +33,6 @@ pub enum Instruction {
 
     // sent from generator
     PushChunks(HashMap<Coord, Chunk>),
-    CheckIfLoaded{coords: Vec<Coord>, sender: mpsc::Sender<Vec<bool>>},
-
-    // register to chunk-update broadcaster
-    RegisterClient(mpsc::Sender<ClientEvent>),
 }
 
 #[derive(Clone, Debug)]
@@ -62,22 +53,14 @@ impl Handle {
         handle
     }
 
-    pub async fn load(&self, coords: Vec<Coord>) {
-        self.sender.send(Instruction::Load(coords)).await.unwrap();
+    pub async fn load(&self) {
+        self.sender.send(Instruction::Load).await.unwrap();
     }
     pub async fn unload(&self, coords: Vec<Coord>) {
         self.sender.send(Instruction::Unload(coords)).await.unwrap();
     }
-    pub async fn flush_load_queue(&self) {
-        self.sender.send(Instruction::FlushLoadQueue).await.unwrap();
-    }
-    pub async fn register_client(&self, sender: mpsc::Sender<ClientEvent>) {
-        self.sender.send(Instruction::RegisterClient(sender)).await.unwrap();
-    }
-    pub async fn request(&self, coords: Vec<Coord>) -> Vec<Chunk> {
-        let (tx, mut rx) = mpsc::channel(1);
-        self.sender.send(Instruction::RequestChunks{coords, sender: tx}).await.unwrap();
-        rx.recv().await.unwrap()
+    pub async fn request(&self, chunks: Vec<Coord>, token: Token, sender: mpsc::Sender<Chunk>) {
+        self.sender.send(Instruction::RequestChunks{chunks, token, sender}).await.unwrap();
     }
     pub async fn get_keys(&self) -> Vec<Coord> {
         let (tx, mut rx) = mpsc::channel(1);
@@ -90,45 +73,63 @@ impl Handle {
     pub async fn push_chunks(&self, chunks: HashMap<Coord, Chunk>) {
         self.sender.send(Instruction::PushChunks(chunks)).await.unwrap();
     }
-    pub async fn check_if_loaded(&self, coords: Vec<Coord>) -> Vec<bool> {
-        let (tx, mut rx) = mpsc::channel(1);
-        self.sender.send(Instruction::CheckIfLoaded{coords, sender: tx}).await.unwrap();
-        rx.recv().await.unwrap()
-    }
 }
 
 async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_handle: PlayerHandle) {
-    // loader
-    let h = handle.clone();
-    tokio::spawn(async move {
-        loader::init_flusher(h).await;
-    });
-
-    let h = handle.clone();
-    let p = player_handle.clone();
-    tokio::spawn(async move {
-        loader::player_chunk_loader(h, p).await;
-    });
+    // load_requester
+    let handle_clone = handle.clone();
+    loader::init_load_requester(handle_clone);
 
     // unloader
-    let h = handle.clone();
+    let handle_clone = handle.clone();
     tokio::spawn(async move {
-        unloader::init(h, player_handle).await;
+        unloader::init(handle_clone, player_handle).await;
     });
 
-    let client_broadcast: BroadCast<ClientEvent> = BroadCast::init();
-
     let mut chunks: HashMap<Coord, Chunk> = HashMap::default();
-    let mut load_queue: Vec<Coord> = Vec::new();
+
+    // chunk load requests of clients
+    let mut requests: HashMap<Token, (mpsc::Sender<Chunk>, Vec<Coord>)> = HashMap::default();
+    let mut queued: HashSet<Coord> = HashSet::default();
 
     loop {
         match receiver.recv().await {
             Some(i) => match i {
-                Instruction::Load(coords) => {
-                    for coord in coords.iter() {
-                        if !load_queue.contains(coord) {
-                            load_queue.push(*coord);
+                Instruction::Load => {
+                    for (_token, (sender, coords)) in requests.iter_mut() {
+                        while let Some(coord) = coords.pop() {
+                            if let Some(chunk) = chunks.get(&coord) {
+                                sender.send(*chunk).await.unwrap();
+                            } else {
+                                // start generating if not already queued
+                                if !queued.contains(&coord) {
+                                    queued.insert(coord);
+
+                                    // load chunk, send it to client and then to handle
+                                    let handle_clone = handle.clone();
+                                    let coord = coord.clone();
+                                    let sender = sender.clone();
+                                    tokio::spawn(async move {
+                                        let superchunk = super::generation::generate(Chunk::new(coord), 9872345);
+                                        sender.send(*superchunk.chunks.get(&coord).unwrap()).await.unwrap();
+                                        handle_clone.push_chunks(superchunk.chunks).await;
+                                    });
+                                }
+                            }
                         }
+
+                    }
+                    // cleanup
+                    for (token, (_sender, coords)) in requests.clone().into_iter() {
+                        if coords.len() == 0 {
+                            requests.remove(&token);
+                        }
+                    }
+                }
+                Instruction::PushChunks(c) => {
+                    for (key, chunk) in c.iter() {
+                        chunks.insert(*key, *chunk);
+                        queued.remove(key);
                     }
                 }
                 Instruction::Unload(coords) => {
@@ -136,27 +137,12 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
                         chunks.remove(coord);
                     }
                 }
-                Instruction::FlushLoadQueue => {
-                    let gpc = CONFIG.chunks.generations_per_cycle as usize;
-
-                    let queue = if load_queue.len() > gpc {
-                        load_queue.drain(0..gpc).as_slice().to_vec()
+                Instruction::RequestChunks{chunks, token, sender} => {
+                    if let Some(request) = requests.get_mut(&token) {
+                        *request = (sender, chunks);
                     } else {
-                        load_queue.drain(..).as_slice().to_vec()
-                    };
-                    let h = handle.clone();
-                    tokio::spawn(async move {
-                        loader::load(queue, h).await
-                    });
-                }
-                Instruction::RequestChunks{coords, sender} => {
-                    let mut chunk_buf: Vec<Chunk> = Vec::new();
-                    for coord in coords.iter() {
-                        if let Some(chunk) = chunks.get(coord) {
-                            chunk_buf.push(*chunk);
-                        }
+                        requests.insert(token, (sender, chunks));
                     }
-                    sender.send(chunk_buf).await.unwrap();
                 }
                 Instruction::RequestKeys(sender) => {
                     let mut keys: Vec<[i64; 3]> = Vec::new();
@@ -170,30 +156,7 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
                         let mut super_chunk = SuperChunk::new((chunk.coord, *chunk)); // BAD
                         super_chunk.place_structure(&structure, coord);
                         apply_superchunk(&mut chunks, super_chunk.clone());
-                        for key in super_chunk.chunks.keys() {
-                            client_broadcast.send(ClientEvent::ChunkUpdate(*key)).await;
-                        }
                     }
-                }
-                Instruction::PushChunks(c) => {
-                    for (key, chunk) in c.iter() {
-                        chunks.insert(*key, *chunk);
-                        client_broadcast.send(ClientEvent::ChunkUpdate(*key)).await;
-                    }
-                }
-                Instruction::CheckIfLoaded{coords, sender} => {
-                    let mut buf: Vec<bool> = Vec::new();
-                    for coord in coords.iter() {
-                        if chunks.get(coord).is_some() {
-                            buf.push(true)
-                        } else {
-                            buf.push(false)
-                        }
-                    }
-                    sender.send(buf).await.unwrap();
-                },
-                Instruction::RegisterClient(sender) => {
-                    client_broadcast.register(sender).await;
                 }
             }
             None => (panic!("Chunk handle cannot receive any more instructions"))
