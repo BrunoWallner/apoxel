@@ -56,6 +56,7 @@ impl Communicator {
 
 #[derive(Clone, Debug)]
 pub enum GameEvent {
+    Invalid,
     Token(Token),
     ChunkUpdate(Chunk),
     Error(Error),

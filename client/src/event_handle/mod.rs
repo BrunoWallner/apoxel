@@ -11,6 +11,7 @@ mod mesh;
 
 pub struct EventHandlePlugin;
 
+
 impl Plugin for EventHandlePlugin {
     fn build(&self, app: &mut App) {
         let communicator = Communicator::init("0.0.0.0:8000");
@@ -35,9 +36,9 @@ fn handle_events(
     communicator: Res<Communicator>,
     mut voxel_map: ResMut<chunk::VoxelMap>,
 ) {
-    let evs = communicator.event_queue.pull(5);
-    for ev in evs.iter() {
-        match ev {
+    let evs = communicator.event_queue.pull(15);
+    for ev in evs.iter() {  
+         match ev {
             GameEvent::ChunkUpdate(chunk) => {
                 let coord = chunk.coord;
                 let data = chunk.data;

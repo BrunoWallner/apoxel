@@ -83,7 +83,6 @@ async fn handle_read(
 ) -> io::Result<()> {
     loop {
         let event = reader.get_event().await?;
-
         match event {
             ProtocolEvent::Register{name} => {
                 client_handle.register(name).await;

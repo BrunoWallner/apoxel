@@ -3,6 +3,7 @@ use super::Coord;
 use std::collections::HashMap;
 
 pub const CHUNK_SIZE: usize = 32;
+pub type ChunkData = [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
 
 pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
     let chunk = [
@@ -21,7 +22,7 @@ pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]
 pub struct Chunk {
-    pub data: [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
+    pub data: ChunkData,
     pub coord: Coord,
 }
 impl Chunk {
@@ -48,13 +49,15 @@ impl Chunk {
 #[derive(Clone, Debug)]
 pub struct SuperChunk {
     pub chunks: HashMap<[i64; 3], Chunk>,
+    pub main_chunk: Coord,
 } impl SuperChunk {
-    pub fn new(main: ([i64; 3], Chunk)) -> Self {
+    pub fn new(main_chunk: Chunk) -> Self {
         let mut chunks = HashMap::default();
-        chunks.insert(main.0, main.1);
+        chunks.insert(main_chunk.coord, main_chunk);
 
         Self {
-            chunks
+            chunks,
+            main_chunk: main_chunk.coord,
         }
     }
     pub fn get(&self, coord: [i64; 3]) -> Option<Block> {
@@ -79,7 +82,38 @@ pub struct SuperChunk {
             }
         }
     }
-    pub fn place_structure(&mut self, structure: &Structure, coord: [i64; 3]) {
+    pub fn place_structure(&mut self, structure: &Structure, coord: [i64; 3], mirror: [bool; 3]) {
+        // to center structure on x and z
+        let x_offset = structure.size[0] / 2;
+        let z_offset = structure.size[2] / 2;
+
+        for x in 0..structure.size[0] {
+            for y in 0..structure.size[1] {
+                for z in 0..structure.size[2] {
+                    let block = structure.get([x, y, z]).unwrap();
+                    if block != Block::None {
+                        let mut x = x;
+                        let mut y = y;
+                        let mut z = z; 
+                        // mirroring
+                        if mirror[0] {x = structure.size[0] - x}
+                        if mirror[1] {y = structure.size[1] - y}
+                        if mirror[2] {z = structure.size[2] - z}
+
+                        let x = coord[0] - x_offset as i64 + x as i64;
+                        let y = coord[1] + y as i64;
+                        let z = coord[2] - z_offset as i64 + z as i64;
+
+    
+                        self.place([x, y, z], block);
+                    }
+                }
+            }
+        }
+    }
+
+    // old
+    pub fn _place_structure(&mut self, structure: &Structure, coord: [i64; 3]) {
         // to center structure on x and z
         let x_offset = structure.size[0] / 2;
         let z_offset = structure.size[2] / 2;
@@ -113,6 +147,10 @@ pub enum Block {
     Stone,
     DarkStone,
 
+    Red,
+    Green,
+    Blue,
+
     Leave,
 }
 impl Block {
@@ -127,7 +165,11 @@ impl Block {
             Block::Stone => (2, 0),
             Block::DarkStone => (2, 1),
 
-            Block::Leave => (3, 0),
+            Block::Red => (3, 0),
+            Block::Green => (3, 1),
+            Block::Blue => (3, 2),
+
+            Block::Leave => (4, 0),
         }
     }
 
@@ -135,13 +177,6 @@ impl Block {
         match self {
             Block::None => true,
             Block::Air => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_semi_transparent(&self) -> bool {
-        match self {
-            Block::Leave => true,
             _ => false,
         }
     }
@@ -176,26 +211,4 @@ impl Structure {
             return None;
         }
     }
-}
-
-pub fn generate_tree() -> Structure {
-    let mut tree = Structure::new([20, 25, 20]);
-
-    let rad: i32 = 9;
-    for x in -rad..rad {
-        for y in -rad..rad {
-            for z in -rad..rad {
-                if x.pow(2) + z.pow(2) + y.pow(2) >= rad.pow(2) {
-                    continue;
-                }
-                tree.place([x as usize + 10, y as usize + 15, z as usize + 10], Block::Leave);
-            }
-        }
-    }
-
-    for y in 0..23 {
-        tree.place([10, y, 10], Block::Dirt);
-    }
-
-    tree
 }

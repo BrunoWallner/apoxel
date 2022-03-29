@@ -9,6 +9,7 @@ pub fn init(
     mut reader: Reader<OwnedReadHalf>,
 ) {
     tokio::spawn(async move {
+        let mut invalid: u64 = 0;
         loop {
             let event = reader.get_event().await?;
             match event {
@@ -23,7 +24,11 @@ pub fn init(
                 }
                 Event::Error(e) => {
                     bridge.push_game(GameEvent::Error(e));
-                }   
+                }
+                Event::Invalid => {
+                    invalid += 1;
+                    println!("invalid: {}", invalid);
+                }  
                 _ => ()
             }
         }

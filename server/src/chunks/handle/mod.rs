@@ -9,6 +9,7 @@ use protocol::chunk::{Chunk, SuperChunk};
 use protocol::chunk::get_chunk_coords;
 
 use crate::player::handle::Handle as PlayerHandle;
+use crate::config::CONFIG;
 
 fn coord_converter(coords: Vec<PlayerCoord>) -> Vec<Coord> {
     let mut buf: Vec<Coord> = Vec::with_capacity(coords.len());
@@ -32,7 +33,7 @@ pub enum Instruction {
     PlaceStructure{coord: Coord, structure: Structure},
 
     // sent from generator
-    PushChunks(HashMap<Coord, Chunk>),
+    PushChunks(SuperChunk),
 }
 
 #[derive(Clone, Debug)]
@@ -70,8 +71,8 @@ impl Handle {
     pub async fn place_structure(&self, coord: Coord, structure: Structure) {
         self.sender.send(Instruction::PlaceStructure{coord, structure}).await.unwrap();
     }
-    pub async fn push_chunks(&self, chunks: HashMap<Coord, Chunk>) {
-        self.sender.send(Instruction::PushChunks(chunks)).await.unwrap();
+    pub async fn push_chunks(&self, chunk: SuperChunk) {
+        self.sender.send(Instruction::PushChunks(chunk)).await.unwrap();
     }
 }
 
@@ -86,6 +87,7 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
         unloader::init(handle_clone, player_handle).await;
     });
 
+    let mut leftover: HashMap<Coord, Chunk> = HashMap::default();
     let mut chunks: HashMap<Coord, Chunk> = HashMap::default();
 
     // chunk load requests of clients
@@ -96,50 +98,79 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
         match receiver.recv().await {
             Some(i) => match i {
                 Instruction::Load => {
-                    for (_token, (sender, coords)) in requests.iter_mut() {
-                        while let Some(coord) = coords.pop() {
-                            if let Some(chunk) = chunks.get(&coord) {
-                                sender.send(*chunk).await.unwrap();
-                            } else {
-                                // start generating if not already queued
-                                if !queued.contains(&coord) {
-                                    queued.insert(coord);
-
-                                    // load chunk, send it to client and then to handle
-                                    let handle_clone = handle.clone();
-                                    let coord = coord.clone();
-                                    let sender = sender.clone();
-                                    tokio::spawn(async move {
-                                        let superchunk = super::generation::generate(Chunk::new(coord), 9872345);
-                                        sender.send(*superchunk.chunks.get(&coord).unwrap()).await.unwrap();
-                                        handle_clone.push_chunks(superchunk.chunks).await;
-                                    });
+                    let mut finished: Vec<Token> = Vec::new();
+                    for (token, (sender, coords)) in requests.iter_mut() {
+                        // multiple gens per cylce
+                        'per_player: for _ in 0..CONFIG.chunks.generations_per_cycle {
+                            if let Some(coord) = coords.pop() {
+                                // when chunk found send it to requester
+                                if let Some(chunk) = chunks.get_mut(&coord) {
+                                    sender.send(*chunk).await.unwrap();
+                                } else {
+                                    // start generating if not already queued
+                                    if !queued.contains(&coord) {
+                                        queued.insert(coord);
+    
+                                        // load chunk and send it to handle
+                                        let handle_clone = handle.clone();
+                                        let coord = coord.clone();
+                                        tokio::spawn(async move {
+                                            let superchunk = super::generation::generate(Chunk::new(coord), 82765945);
+                                            handle_clone.push_chunks(superchunk).await;
+                                        });
+                                    }
                                 }
+                            } else {
+                                // no request left of specific token, mark for deletion
+                                finished.push(*token);
+                                break 'per_player;
                             }
                         }
-
                     }
-                    // cleanup
-                    for (token, (_sender, coords)) in requests.clone().into_iter() {
-                        if coords.len() == 0 {
-                            requests.remove(&token);
-                        }
+                    // deletion
+                    for token in finished.iter() {
+                        requests.remove(token);
                     }
                 }
-                Instruction::PushChunks(c) => {
-                    for (key, chunk) in c.iter() {
-                        chunks.insert(*key, *chunk);
-                        queued.remove(key);
+                Instruction::PushChunks(mut s_c) => {
+                    // extract main chunk
+                    let mut main_chunk = s_c.chunks.remove(&s_c.main_chunk).unwrap();
+                    queued.remove(&s_c.main_chunk);
+
+                    // handle main chunk and merge when leftover chunk is detected
+                    if let Some(left) = leftover.get(&s_c.main_chunk) {
+                        main_chunk.merge(left);
+                        leftover.remove(&s_c.main_chunk);
+                    }
+                    chunks.insert(s_c.main_chunk, main_chunk);
+
+                    // handle leftovers
+                    for (key, left_chunk) in s_c.chunks.iter() {
+                        let left;
+                        if let Some(leftover) = leftover.get_mut(key) {
+                            leftover.merge(left_chunk);
+                            left = *leftover;
+                        } else {
+                            leftover.insert(*key, *left_chunk);
+                            left = *left_chunk;
+                        }
+
+                        // apply leftover to chunk, when found
+                        if let Some(chunk) = chunks.get_mut(key) {
+                            chunk.merge(&left);
+                        }
                     }
                 }
                 Instruction::Unload(coords) => {
                     for coord in coords.iter() {
                         chunks.remove(coord);
+                        leftover.remove(coord);
                     }
                 }
                 Instruction::RequestChunks{chunks, token, sender} => {
-                    if let Some(request) = requests.get_mut(&token) {
-                        *request = (sender, chunks);
+                    if let Some( (request_sender, request_chunks)) = requests.get_mut(&token) {
+                        *request_sender = sender;
+                        *request_chunks = chunks;
                     } else {
                         requests.insert(token, (sender, chunks));
                     }
@@ -153,8 +184,8 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
                 }
                 Instruction::PlaceStructure{coord, structure} => {
                     if let Some(chunk) = chunks.get(&coord) {
-                        let mut super_chunk = SuperChunk::new((chunk.coord, *chunk)); // BAD
-                        super_chunk.place_structure(&structure, coord);
+                        let mut super_chunk = SuperChunk::new(*chunk); // BAD
+                        super_chunk.place_structure(&structure, coord, [false, false, false]);
                         apply_superchunk(&mut chunks, super_chunk.clone());
                     }
                 }
@@ -164,6 +195,7 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
     }
 }
 
+// for structure placing
 fn apply_superchunk(chunks: &mut HashMap<Coord, Chunk>, super_chunk: SuperChunk) {
     for (key, data) in super_chunk.chunks.iter() {
         //voxels.map.insert(*key, *data);
