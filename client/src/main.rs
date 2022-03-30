@@ -17,6 +17,7 @@ fn main() {
 
 fn setup(
     mut cmds: Commands,
+    mut ambient_light: ResMut<AmbientLight>,
 ) {
     cmds.insert_resource(WindowDescriptor {
         title: "Broxel".to_string(), 
@@ -24,4 +25,15 @@ fn setup(
         height: 800.0, 
         ..default()
     });
+
+    ambient_light.brightness = 0.0;
+
+    cmds.insert_resource(ClearColor(
+        Color::Rgba {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+            alpha: 1.0,
+        }
+    ));
 }

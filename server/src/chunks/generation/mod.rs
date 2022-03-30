@@ -1,7 +1,7 @@
 use noise::{OpenSimplex, NoiseFn, Seedable};
 use protocol::chunk::Structure;
 
-use super::CHUNK_SIZE;
+use protocol::chunk::CHUNK_SIZE;
 use protocol::chunk::{Chunk, SuperChunk};
 use protocol::chunk::Block;
 
@@ -28,8 +28,8 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
                     chunks.place([global_x, height, global_z], Block::Grass);
                 }
             }
-            let tree = noise.get([global_x as f64 * 2.13, global_z as f64 * 2.13]) > 0.485;
-            if tree && height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
+            let flower = noise.get([global_x as f64 * 2.13, global_z as f64 * 2.13]) > 0.495;
+            if flower && height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
                 let mirror_x = noise.get([global_x as f64 * 1.13, global_z as f64 * 1.13]) > 0.4325;
                 let mirror_z = noise.get([global_x as f64 * 1.13, global_z as f64 * 1.13]) > 0.4750;
                 chunks.place_structure(&flower_struct, [global_x, height, global_z], [mirror_x, false, mirror_z]);
@@ -63,22 +63,21 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
 }
 
 pub fn generate_flower() -> Structure {
-    let mut grass = Structure::new([5, 5, 5]);
+    let mut grass = Structure::new([3, 3, 3]);
 
     let red = Block::Red;
     let green = Block::Green;
     let blue = Block::Blue;
     
-    grass.place([1, 0, 2], green);
-    grass.place([1, 1, 2], green);
-    grass.place([2, 2, 2], green);
+    grass.place([1, 0, 1], green);
+    grass.place([1, 1, 1], green);
 
-    grass.place([3, 2, 2], red);
+    grass.place([1, 2, 1], red);
 
-    grass.place([3, 3, 2], blue);
-    grass.place([3, 1, 2], blue);
-    grass.place([3, 2, 1], blue);
-    grass.place([3, 2, 3], blue);
+    grass.place([2, 2, 1], blue);
+    grass.place([0, 2, 1], blue);
+    grass.place([1, 2, 2], blue);
+    grass.place([1, 2, 0], blue);
 
     grass
 }

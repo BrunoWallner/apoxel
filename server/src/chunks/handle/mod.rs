@@ -10,6 +10,7 @@ use protocol::chunk::get_chunk_coords;
 
 use crate::player::handle::Handle as PlayerHandle;
 use crate::config::CONFIG;
+use crate::client::chunk_handle::ChunkEvent as ClientChunkEvent;
 
 fn coord_converter(coords: Vec<PlayerCoord>) -> Vec<Coord> {
     let mut buf: Vec<Coord> = Vec::with_capacity(coords.len());
@@ -24,7 +25,7 @@ pub enum Instruction {
     Load,
     Unload(Vec<Coord>),
 
-    RequestChunks{chunks: Vec<Coord>, token: Token, sender: mpsc::Sender<Chunk>},
+    RequestChunks{chunks: Vec<Coord>, token: Token},
 
     // for unload detection
     RequestKeys(mpsc::Sender<Vec<Coord>>),
@@ -34,6 +35,8 @@ pub enum Instruction {
 
     // sent from generator
     PushChunks(SuperChunk),
+
+    RegisterUpdateNotifier{token: Token, sender: mpsc::Sender<ClientChunkEvent>}
 }
 
 #[derive(Clone, Debug)]
@@ -60,8 +63,8 @@ impl Handle {
     pub async fn unload(&self, coords: Vec<Coord>) {
         self.sender.send(Instruction::Unload(coords)).await.unwrap();
     }
-    pub async fn request(&self, chunks: Vec<Coord>, token: Token, sender: mpsc::Sender<Chunk>) {
-        self.sender.send(Instruction::RequestChunks{chunks, token, sender}).await.unwrap();
+    pub async fn request(&self, chunks: Vec<Coord>, token: Token) {
+        self.sender.send(Instruction::RequestChunks{chunks, token}).await.unwrap();
     }
     pub async fn get_keys(&self) -> Vec<Coord> {
         let (tx, mut rx) = mpsc::channel(1);
@@ -73,6 +76,9 @@ impl Handle {
     }
     pub async fn push_chunks(&self, chunk: SuperChunk) {
         self.sender.send(Instruction::PushChunks(chunk)).await.unwrap();
+    }
+    pub async fn register_update_notifier(&self, token: Token, sender: mpsc::Sender<ClientChunkEvent>) {
+        self.sender.send(Instruction::RegisterUpdateNotifier{token, sender}).await.unwrap();
     }
 }
 
@@ -91,21 +97,25 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
     let mut chunks: HashMap<Coord, Chunk> = HashMap::default();
 
     // chunk load requests of clients
-    let mut requests: HashMap<Token, (mpsc::Sender<Chunk>, Vec<Coord>)> = HashMap::default();
+    let mut requests: HashMap<Token, Vec<Coord>> = HashMap::default();
     let mut queued: HashSet<Coord> = HashSet::default();
+
+    let mut update_register: HashMap<Token, mpsc::Sender<ClientChunkEvent>> = HashMap::default();
 
     loop {
         match receiver.recv().await {
             Some(i) => match i {
                 Instruction::Load => {
                     let mut finished: Vec<Token> = Vec::new();
-                    for (token, (sender, coords)) in requests.iter_mut() {
+                    for (token, coords) in requests.iter_mut() {
                         // multiple gens per cylce
                         'per_player: for _ in 0..CONFIG.chunks.generations_per_cycle {
                             if let Some(coord) = coords.pop() {
                                 // when chunk found send it to requester
                                 if let Some(chunk) = chunks.get_mut(&coord) {
-                                    sender.send(*chunk).await.unwrap();
+                                    if let Some(sender) = update_register.get(token) {
+                                        sender.send(ClientChunkEvent::PushLoadedChunk(*chunk)).await.unwrap();
+                                    }
                                 } else {
                                     // start generating if not already queued
                                     if !queued.contains(&coord) {
@@ -132,6 +142,7 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
                         requests.remove(token);
                     }
                 }
+                // roughly 50_000 pushs per second possible
                 Instruction::PushChunks(mut s_c) => {
                     // extract main chunk
                     let mut main_chunk = s_c.chunks.remove(&s_c.main_chunk).unwrap();
@@ -167,12 +178,16 @@ async fn init(mut receiver: mpsc::Receiver<Instruction>, handle: Handle, player_
                         leftover.remove(coord);
                     }
                 }
-                Instruction::RequestChunks{chunks, token, sender} => {
-                    if let Some( (request_sender, request_chunks)) = requests.get_mut(&token) {
-                        *request_sender = sender;
+                Instruction::RequestChunks{chunks, token} => {
+                    if let Some( request_chunks) = requests.get_mut(&token) {
                         *request_chunks = chunks;
                     } else {
-                        requests.insert(token, (sender, chunks));
+                        requests.insert(token, chunks);
+                    }
+                }
+                Instruction::RegisterUpdateNotifier{token, sender} => {
+                    if !update_register.contains_key(&token) {
+                        update_register.insert(token, sender);
                     }
                 }
                 Instruction::RequestKeys(sender) => {

@@ -1,7 +1,5 @@
 use tokio::sync::mpsc;
-use protocol::Coord;
-use protocol::chunk::Chunk;
-use protocol::Token;
+use protocol::{Token, Coord, chunk::Chunk};
 use crate::config::CONFIG;
 
 use crate::chunks::handle::Handle as ChunkHandle;
@@ -15,43 +13,24 @@ use super::Event;
 
 
 #[derive(Copy, Clone, Debug)]
-pub enum Instruction {
+pub enum ChunkEvent {
     Request(Coord),
-    PushLoaded(Coord),
+    PushLoadedChunk(Chunk),
     RequestUnload(Coord),
     SetToken(Token),
 }
 
 pub struct Handle {
-    pub sender: mpsc::Sender<Instruction>
+    pub sender: mpsc::Sender<ChunkEvent>
 }
 impl Handle {
     pub async fn init(chunk_handle: ChunkHandle, write_broadcast: BroadCast<events::Tcp>, event_sender: mpsc::Sender<Event>) -> Self {
-        let (chunk_tx, chunk_rx) = mpsc::channel(1024);
         let (tx, rx) = mpsc::channel(1024);
-        init_chunk_rx(chunk_rx, write_broadcast.clone(), tx.clone()).await;
-        init(rx, chunk_handle, chunk_tx);
+        //init_chunk_rx(chunk_rx, write_broadcast.clone(), tx.clone()).await;
+        init(tx.clone(), rx, chunk_handle, write_broadcast.clone());
         init_chunk_requester(event_sender).await;
         Self {sender: tx}
     }
-}
-
-async fn init_chunk_rx(
-    mut rx: mpsc::Receiver<Chunk>,
-    write_broadcast: BroadCast<events::Tcp>,
-    sender: mpsc::Sender<Instruction>,
-) {
-    tokio::spawn(async move {
-        loop {
-            if let Some(chunk) = rx.recv().await {
-                sender.send(Instruction::PushLoaded(chunk.coord)).await.unwrap();
-                write_broadcast.send(events::Tcp::Protocol(ProtocolEvent::ChunkUpdate(chunk))).await;
-            } else {
-                // client disconnected
-                break;
-            }
-        }
-    });
 }
 
 use std::time::Duration;
@@ -72,17 +51,18 @@ async fn init_chunk_requester(sender: mpsc::Sender<Event>) {
     });
 }
 
-fn init(mut rx: mpsc::Receiver<Instruction>, chunk_handle: ChunkHandle, chunk_tx: mpsc::Sender<Chunk>) {
+fn init(tx: mpsc::Sender<ChunkEvent>, mut rx: mpsc::Receiver<ChunkEvent>, chunk_handle: ChunkHandle, write_broadcast: BroadCast<events::Tcp>) {
     tokio::spawn(async move {
         let mut loaded: HashSet<Coord> = HashSet::default();
         let mut token: Option<Token> = None;
 
         loop {
             match rx.recv().await.unwrap() {
-                Instruction::SetToken(t) => {
+                ChunkEvent::SetToken(t) => {
                     token = Some(t);
+                    chunk_handle.register_update_notifier(t, tx.clone()).await;
                 }
-                Instruction::Request(chunk_pos) => {
+                ChunkEvent::Request(chunk_pos) => {
                     if let Some(token) = token {
                         let rd = CONFIG.chunks.render_distance as i64;
                         let mut chunks: Vec<Coord> = Vec::new();
@@ -111,11 +91,11 @@ fn init(mut rx: mpsc::Receiver<Instruction>, chunk_handle: ChunkHandle, chunk_tx
                                 (coord[2] - chunk_pos[2]).pow(2)
                             });
                             chunks.reverse();
-                            chunk_handle.request(chunks, token, chunk_tx.clone()).await;
+                            chunk_handle.request(chunks, token).await;
                         }
                     }                   
                 }
-                Instruction::RequestUnload(chunk_pos) => {
+                ChunkEvent::RequestUnload(chunk_pos) => {
                     // unload chunks
                     for coord in loaded.clone().into_iter() {
                         let distance = (( 
@@ -128,8 +108,9 @@ fn init(mut rx: mpsc::Receiver<Instruction>, chunk_handle: ChunkHandle, chunk_tx
                         }
                     }
                 }
-                Instruction::PushLoaded(coord) => {
-                    loaded.insert(coord);
+                ChunkEvent::PushLoadedChunk(chunk) => {
+                    loaded.insert(chunk.coord);
+                    write_broadcast.send(events::Tcp::Protocol(ProtocolEvent::ChunkUpdate(chunk))).await;
                 }
             }
         }

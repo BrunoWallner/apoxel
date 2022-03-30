@@ -6,7 +6,7 @@ use crate::player::handle::Handle as PlayerHandle;
 use crate::broadcast::BroadCast;
 use crate::events;
 
-use super::chunk_handle::Instruction;
+use crate::client::chunk_handle::ChunkEvent as ClientChunkEvent;
 
 use protocol::{
     Token,
@@ -75,8 +75,8 @@ async fn init(
                             player_pos = player.pos;
                         }
                         let chunk_pos = protocol::chunk::get_chunk_coords(&[player_pos[0] as i64, player_pos[1] as i64, player_pos[2] as i64]).0;
-                        client_chunk_handle.sender.send(Instruction::Request(chunk_pos)).await.unwrap();
-                        client_chunk_handle.sender.send(Instruction::RequestUnload(chunk_pos)).await.unwrap();
+                        client_chunk_handle.sender.send(ClientChunkEvent::Request(chunk_pos)).await.unwrap();
+                        client_chunk_handle.sender.send(ClientChunkEvent::RequestUnload(chunk_pos)).await.unwrap();
                     }
                 }
                 Register{name}=> {
@@ -89,7 +89,7 @@ async fn init(
                 Login(t) => {
                     if player_handle.login(t).await {
                         token = Some(t);
-                        client_chunk_handle.sender.send(Instruction::SetToken(t)).await.unwrap();
+                        client_chunk_handle.sender.send(ClientChunkEvent::SetToken(t)).await.unwrap();
                     } else {
                         write_broadcast.send(events::Tcp::Protocol(ProtocolEvent::Error(ProtocolError::Login))).await;
                     }

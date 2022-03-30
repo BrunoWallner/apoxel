@@ -11,8 +11,7 @@ impl Plugin for PlayerPlugin {
         app
             .add_startup_system(spawn_player)
             .add_system(light_system)
-            .add_plugin(FlyCameraPlugin)
-            .add_system(super::depth::update_lighting);
+            .add_plugin(FlyCameraPlugin);
     }
 }
 
@@ -34,7 +33,7 @@ fn spawn_player(
 
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
-            color: Color::hex("efb615").unwrap(),
+            color: Color::hex("FFFFFF").unwrap(),
             range: 500000.0,
             radius: 1.0,
             intensity: 10000.0,

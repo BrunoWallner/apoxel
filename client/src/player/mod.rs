@@ -1,6 +1,5 @@
 mod camera;
 mod plugin;
-mod depth;
 
 pub use plugin::PlayerPlugin;
 
