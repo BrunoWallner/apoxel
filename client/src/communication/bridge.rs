@@ -20,7 +20,7 @@ impl Bridge {
     }
 
     pub fn push_tcp(&self, event: TcpEvent) {
-        self.tcp_sender.send(event).unwrap();
+        let _ = self.tcp_sender.send(event);
     }
     pub fn push_game(&self, event: GameEvent) {
         self.game_sender.send(event).unwrap();

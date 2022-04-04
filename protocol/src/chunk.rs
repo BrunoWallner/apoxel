@@ -60,6 +60,10 @@ pub struct SuperChunk {
             main_chunk: main_chunk.coord,
         }
     }
+    pub fn get_main_chunk(&self) -> Chunk {
+        // guaranteed to not panic if initialized with Self::new()
+        *self.chunks.get(&self.main_chunk).unwrap()
+    }
     pub fn get(&self, coord: [i64; 3]) -> Option<Block> {
         let (chunk, index) = get_chunk_coords(&coord);
     
@@ -141,17 +145,23 @@ pub enum Block {
     None,
     Air,
 
+    // terrain
     Grass,
     Dirt,
 
     Stone,
     DarkStone,
 
+    // colors
     Red,
     Green,
     Blue,
 
+    // foliage
     Leave,
+
+    // liquids
+    Water,
 }
 impl Block {
     pub fn to_category(&self) -> (u32, u32) {
@@ -170,6 +180,8 @@ impl Block {
             Block::Blue => (3, 2),
 
             Block::Leave => (4, 0),
+
+            Block::Water => (5, 0),
         }
     }
 

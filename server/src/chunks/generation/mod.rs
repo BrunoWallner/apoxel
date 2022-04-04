@@ -1,15 +1,18 @@
-use noise::{OpenSimplex, NoiseFn, Seedable};
+mod noise;
+mod terrain;
+
 use protocol::chunk::Structure;
 
 use protocol::chunk::CHUNK_SIZE;
 use protocol::chunk::{Chunk, SuperChunk};
 use protocol::chunk::Block;
 
+const WATER_LEVEL: i64 = 50;
+
 pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
     let key = chunk.coord;
-    let flower_struct = generate_flower();
-    let noise = OpenSimplex::new();
-    noise.set_seed(seed);
+    let _flower_struct = generate_flower();
+    let terrain = terrain::TerrainGen::new(seed);
 
     let mut chunks: SuperChunk = SuperChunk::new( chunk );
     /* Landscape */
@@ -18,21 +21,36 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
             let global_x = (key[0] * CHUNK_SIZE as i64) + x as i64;
             let global_z = (key[2] * CHUNK_SIZE as i64) + z as i64;
 
-            let mut height = (noise.get([global_x as f64 * 0.0033, global_z as f64 * 0.0033]) + 1.0) * 50.0;
-            height += noise.get([global_x as f64 * 0.01, global_z as f64 * 0.01]) * 3.0;
-            
-            let height = height as i64;
+            let (height, _biome) = terrain.get([global_x, global_z]);
 
+            // dirt
             for height in 0..height {
                 if height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
-                    chunks.place([global_x, height, global_z], Block::Grass);
+                    chunks.place([global_x, height, global_z], Block::Dirt);
                 }
             }
+
+            // grass
+            if height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
+                chunks.place([global_x, height, global_z], Block::Grass)
+            }
+            /*
             let flower = noise.get([global_x as f64 * 2.13, global_z as f64 * 2.13]) > 0.495;
             if flower && height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
                 let mirror_x = noise.get([global_x as f64 * 1.13, global_z as f64 * 1.13]) > 0.4325;
                 let mirror_z = noise.get([global_x as f64 * 1.13, global_z as f64 * 1.13]) > 0.4750;
                 chunks.place_structure(&flower_struct, [global_x, height, global_z], [mirror_x, false, mirror_z]);
+            }
+            */
+            
+            // water
+            for height in 0..WATER_LEVEL {
+                if height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
+                    let block = chunks.get([global_x, height, global_z]);
+                    if block == Some(Block::None) || block == None {
+                        chunks.place([global_x, height, global_z], Block::Water);
+                    }
+                }
             }
         }
     }

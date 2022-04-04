@@ -34,7 +34,7 @@ fn spawn_player(
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
             color: Color::hex("FFFFFF").unwrap(),
-            range: 500000.0,
+            range: 5000000.0,
             radius: 1.0,
             intensity: 10000.0,
             ..default()
