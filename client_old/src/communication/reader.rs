@@ -1,7 +1,7 @@
 use super::bridge::Bridge;
 use protocol::{event::Event, reader::Reader};
 use tokio::net::tcp::OwnedReadHalf;
-use super::CommunicationEvent;
+use super::GameEvent;
 
 #[allow(unreachable_code)]
 pub fn init(
@@ -14,15 +14,15 @@ pub fn init(
             match event {
                 // when successfull register
                 Event::Token(t) => {
-                    bridge.push_communication(CommunicationEvent::Token(t));
+                    bridge.push_game(GameEvent::Token(t));
                     bridge.push_tcp(Event::Login{token: t});
                     // TODO: save token
                 }
                 Event::ChunkUpdate(chunk) => {
-                    bridge.push_communication(CommunicationEvent::ChunkUpdate(chunk));
+                    bridge.push_game(GameEvent::ChunkUpdate(chunk));
                 }
                 Event::Error(e) => {
-                    bridge.push_communication(CommunicationEvent::Error(e));
+                    bridge.push_game(GameEvent::Error(e));
                 }
                 _ => ()
             }
