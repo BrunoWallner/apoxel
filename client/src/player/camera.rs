@@ -126,17 +126,19 @@ fn strafe_vector(rotation: &Quat) -> Vec3 {
 
 use crate::player::Player;
 
+
+
 fn camera_movement_system(
 	time: Res<Time>,
 	keyboard_input: Res<Input<KeyCode>>,
 	//mut query: Query<(&mut FlyCamera, &mut Transform)>,
-    mut query: QuerySet<(
-        QueryState<(&mut FlyCamera, &mut Transform)>,
-        QueryState<(&Transform, &mut Player)>
+    mut query: ParamSet<(
+        Query<(&mut FlyCamera, &mut Transform)>,
+        Query<(&Transform, &mut Player)>
     )>
 ) {
 
-    for (mut options, mut transform) in query.q0().iter_mut() {
+    for (mut options, mut transform) in query.p0().iter_mut() {
         let (axis_h, axis_v, axis_float) = if options.enabled {
             (
                 movement_axis(&keyboard_input, options.key_right, options.key_left),
@@ -189,7 +191,7 @@ fn camera_movement_system(
 
 
     // determines player chunk pos necessary for chunk loading
-    for (transform, mut player) in query.q1().iter_mut() {
+    for (transform, mut player) in query.p1().iter_mut() {
         let player_pos = transform.translation;
         let chunk_x = (player_pos.x / CHUNK_SIZE as f32).round() as i64;
         let chunk_y = (player_pos.y / CHUNK_SIZE as f32).round() as i64;

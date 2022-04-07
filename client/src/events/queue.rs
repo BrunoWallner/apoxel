@@ -1,7 +1,11 @@
 // Allows non blocking communcation to game loop
 
+/*
+
 use crossbeam::channel;
 use super::GameEvent;
+
+use std::thread;
 
 #[derive(Clone, Debug)]
 enum Instruction {
@@ -19,7 +23,7 @@ impl GameEventQueue {
         init(rx);
         Self{sender: tx}
     }
-    pub fn send(&self, event: GameEvent) {
+    pub fn push(&self, event: GameEvent) {
         self.sender.send(Instruction::Push(event)).unwrap();
     }
     pub fn pull(&self, amount: usize) -> Vec<GameEvent> {
@@ -30,7 +34,7 @@ impl GameEventQueue {
 }
 
 fn init(rx: channel::Receiver<Instruction>) {
-    tokio::spawn(async move {
+    thread::spawn(move || {
         let mut queue: Vec<GameEvent> = Vec::new();
 
         loop {
@@ -48,4 +52,31 @@ fn init(rx: channel::Receiver<Instruction>) {
             }
         }
     });
+}
+*/
+
+
+use std::sync::{Mutex, Arc};
+use super::GameEvent;
+
+#[derive(Clone, Debug)]
+pub struct GameEventQueue {
+    queue: Arc<Mutex<Vec<GameEvent>>>
+}
+impl GameEventQueue {
+    pub fn init() -> Self {
+        Self {
+            queue: Arc::new(Mutex::new(Vec::new()))
+        }
+    }
+
+    pub fn push(&mut self, event: GameEvent) {
+        let mut queue = self.queue.lock().unwrap();
+        queue.insert(0, event);
+    }
+
+    pub fn pull(&mut self) -> Option<GameEvent> {
+        let mut queue = self.queue.lock().unwrap();
+        queue.pop()
+    }
 }

@@ -10,7 +10,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_startup_system(spawn_player)
-            .add_system(light_system)
+            .add_system(update_pos)
             .add_plugin(FlyCameraPlugin);
     }
 }
@@ -30,33 +30,18 @@ fn spawn_player(
     })
     .insert(Player::new())
     .insert(FlyCamera::default());
-
-    commands.spawn_bundle(PointLightBundle {
-        point_light: PointLight {
-            color: Color::hex("FFFFFF").unwrap(),
-            range: 5000000.0,
-            radius: 1.0,
-            intensity: 10000.0,
-            ..default()
-        },
-        ..default()
-    })
-    .insert(Light);
 }
 
-fn light_system(
-    mut query: QuerySet<(
-        QueryState<(&Transform, &FlyCamera)>,
-        QueryState<(&mut Transform, &Light)>
-    )>
-) {
-    let mut player = Transform::from_xyz(0.0, 0.0, 0.0);
-    // only one player supported
-    for (t, _) in query.q0().iter().next() {
-        player = *t;
-    }
+use crate::communication::Communicator;
+use protocol::event::Event as TcpEvent;
 
-    for (mut t, _) in query.q1().iter_mut() {
-        *t = player
+// sends local player pos to server
+fn update_pos(
+    query: Query<&Transform, With<FlyCamera>>,
+    communicator: Res<Communicator>
+) {
+    for player in query.iter() {
+        let pos = player.translation;
+        communicator.event_bridge.push_tcp(TcpEvent::MovePlayer( [pos.x as f64, pos.y as f64, pos.z as f64] ));
     }
 }
