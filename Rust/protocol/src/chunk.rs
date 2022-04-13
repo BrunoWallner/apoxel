@@ -164,7 +164,7 @@ pub enum Block {
     Water,
 }
 impl Block {
-    pub fn to_category(&self) -> (u32, u32) {
+    pub fn to_category(&self) -> (u8, u8) {
         match self {
             Block::None => (0, 0),
             Block::Air => (0, 1),
