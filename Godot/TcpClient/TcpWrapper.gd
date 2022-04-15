@@ -1,22 +1,57 @@
 extends Node;
 
-# string
-signal ChunkUpdate(position, chunk);
-# array
-signal Token(token);
-# string
-signal Error(kind);
-
 export var host: String = "0.0.0.0:8000";
 
 onready var client: Node = self.get_node("TcpClient");
 
 var token: Array = [];
 
+const TOKEN_LENGTH: int = 16;
+
 func _ready():
 	client.establish_connection(host);
 	
-	client.connect("Event", self, "handle_event");
+	# login if token is stored
+	var file = File.new();
+	if file.file_exists("user://token.dat"):
+		file.open("user://token.dat", File.READ);
+		token = file.get_buffer(TOKEN_LENGTH);
+		file.close();
+	else:
+		self.register("Luca");
+	
+	self.login();
+	
+func _process(_dt: float):
+	# fetching events	
+	var event = client.fetch_event();
+	if event:
+		var type = event[0];
+		match type:
+			"Token":
+				# login 
+				token = event[1][0];
+				self.login();
+				
+				var file = File.new();
+				file.open("user://token.dat", File.WRITE);
+				file.store_buffer(token);
+				file.close();
+
+			"Error":
+				var error = event[1][0];
+				match error:
+					"Login":
+						print("invalid login token");
+						var dir = Directory.new();
+						dir.remove("user://token.dat");
+					"Register":
+						print("user already registered");
+						
+						
+
+func handle_chunk_update(chunk):
+	self.emit_signal("ChunkUpdate", chunk);
 	
 func connection_established() -> bool:
 	return client.connection_established();
@@ -28,7 +63,6 @@ func register(name: String):
 func login():
 	if !token.empty():
 		var token_string: String = str(token).replace(" ", "");
-
 		var string = '{"Login":{"token":' + token_string + '}}';
 		client.send(string);
 	
@@ -40,25 +74,3 @@ func move(pos: Vector3):
 	var string = '{"Move":{"coord":[' + x + "," + y + "," + z + ']}}';
 	
 	client.send(string);
-	
-func handle_event(event: String):
-	var type: String = event.split('"', true, 2)[1];
-	match type:
-		"Error":
-			var kind: String = JSON.parse(event).result.Error;
-			self.emit_signal("Error", kind);
-		"Token":
-			print(JSON.parse(event).result);
-			var token: Array = JSON.parse(event).result.Token;
-			self.emit_signal("Token", token);
-			
-		"ChunkUpdate":
-			var result = JSON.parse(event).result;
-			#print(result);
-			var coord = result.ChunkUpdate.coord;
-			var data: Array = result.ChunkUpdate.data;
-			self.emit_signal("ChunkUpdate", coord, data);
-		_:
-			print("invalid event type");
-	
-
