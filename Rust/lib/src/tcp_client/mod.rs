@@ -5,6 +5,8 @@ use bridge::Bridge;
 use protocol::event::{ClientToServer, ServerToClient};
 use protocol::chunk::CHUNK_SIZE;
 
+use crate::Coord;
+
 use tokio::runtime::Runtime;
 use gdnative::prelude::*;
 
@@ -15,7 +17,7 @@ pub struct TcpClient {
     runtime: Runtime,
 
     events: Vec<(String, Vec<Variant>)>,
-    chunk_updates: Vec<ByteArray>,
+    chunk_updates: Vec<(Coord, ByteArray)>,
 }
 
 #[methods]
@@ -56,7 +58,7 @@ impl TcpClient {
     }
 
     #[export]
-    fn fetch_chunk_update(&mut self, _owner: &Node) -> Option<ByteArray> {
+    fn fetch_chunk_update(&mut self, _owner: &Node) -> Option<(Coord, ByteArray)> {
         self.chunk_updates.pop()
     }
 
@@ -85,6 +87,11 @@ impl TcpClient {
             if let Some(event) = bridge.receive() {
                 match event {
                     ServerToClient::ChunkUpdate(chunk) => {
+                        let mut coord: PoolArray<i32> = PoolArray::new();
+                        for c in chunk.coord.iter() {
+                            coord.push(*c as i32 * CHUNK_SIZE as i32);
+                        }
+
                         let mut data: ByteArray = PoolArray::from_vec(vec![0; CHUNK_SIZE.pow(3)]);
                         for x in 0..CHUNK_SIZE {
                             for y in 0..CHUNK_SIZE {
@@ -92,10 +99,11 @@ impl TcpClient {
                                     // https://coderwall.com/p/fzni3g/bidirectional-translation-between-1d-and-3d-arrays
                                     let i = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE;
                                     data.set(i as i32, chunk.data[x][y][z].to_category().0);
+                                    //data.set(i as i32 + 1, chunk.data[x][y][z].to_category().1);
                                 }
                             }
                         }
-                        self.chunk_updates.push(data);
+                        self.chunk_updates.push( (coord, data) );
                     }
                     ServerToClient::Token(token) => {
                         self.events.push( (String::from("Token"), vec![Variant::new(token.to_vec())]) );

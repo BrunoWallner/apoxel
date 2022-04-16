@@ -10,14 +10,14 @@ extents = Vector3( 1, 0.307304, 0.85674 )
 [node name="main" type="Spatial"]
 
 [node name="Character" parent="." instance=ExtResource( 1 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.170842 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 135.699, -0.170842 )
 SPEED = 5.0
 
 [node name="StaticBody" type="StaticBody" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.279917 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 127.169, 0 )
 
 [node name="CollisionShape" type="CollisionShape" parent="StaticBody"]
-transform = Transform( 200, 0, 0, 0, 1, 0, 0, 0, 200, 0, -1, 0 )
+transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 1.915, 0, 6.384, 0 )
 shape = SubResource( 2 )
 
 [node name="TcpWrapper" parent="." instance=ExtResource( 3 )]
