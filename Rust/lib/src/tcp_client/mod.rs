@@ -10,6 +10,8 @@ use crate::Coord;
 use tokio::runtime::Runtime;
 use gdnative::prelude::*;
 
+const MAX_CHUNK_UPDATES_PER_CYCLE: usize = 10;
+
 #[derive(NativeClass)]
 #[inherit(Node)]
 pub struct TcpClient {
@@ -58,8 +60,12 @@ impl TcpClient {
     }
 
     #[export]
-    fn fetch_chunk_update(&mut self, _owner: &Node) -> Option<(Coord, ByteArray)> {
-        self.chunk_updates.pop()
+    fn fetch_chunk_update(&mut self, _owner: &Node) -> Vec<(Coord, ByteArray)> {
+        if self.chunk_updates.len() > MAX_CHUNK_UPDATES_PER_CYCLE {
+            self.chunk_updates.drain(..MAX_CHUNK_UPDATES_PER_CYCLE).as_slice().to_vec()
+        } else {
+            self.chunk_updates.drain(..).as_slice().to_vec()
+        }
     }
 
     #[export]
@@ -84,7 +90,7 @@ impl TcpClient {
     #[export]
     fn _process(&mut self, _owner: &Node, _dt: f64) {
         if let Some(bridge) = &self.bridge {
-            if let Some(event) = bridge.receive() {
+            while let Some(event) = bridge.receive() {
                 match event {
                     ServerToClient::ChunkUpdate(chunk) => {
                         let mut coord: PoolArray<i32> = PoolArray::new();
@@ -92,14 +98,14 @@ impl TcpClient {
                             coord.push(*c as i32 * CHUNK_SIZE as i32);
                         }
 
-                        let mut data: ByteArray = PoolArray::from_vec(vec![0; CHUNK_SIZE.pow(3)]);
+                        let mut data: ByteArray = PoolArray::from_vec(vec![0; CHUNK_SIZE.pow(3) * 2]);
                         for x in 0..CHUNK_SIZE {
                             for y in 0..CHUNK_SIZE {
                                 for z in 0..CHUNK_SIZE {
                                     // https://coderwall.com/p/fzni3g/bidirectional-translation-between-1d-and-3d-arrays
-                                    let i = x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE;
+                                    let i = (x + y * CHUNK_SIZE + z * CHUNK_SIZE * CHUNK_SIZE) * 2;
                                     data.set(i as i32, chunk.data[x][y][z].to_category().0);
-                                    //data.set(i as i32 + 1, chunk.data[x][y][z].to_category().1);
+                                    data.set(i as i32 + 1, chunk.data[x][y][z].to_category().1);
                                 }
                             }
                         }

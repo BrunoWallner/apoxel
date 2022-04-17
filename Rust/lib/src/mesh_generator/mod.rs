@@ -8,14 +8,12 @@ use std::thread;
 use crate::Coord;
 
 pub type InternalChunk = (Coord, ByteArray);
-// mesh coord, verts, uvs, normals, indices
-pub type MeshData = (Coord, Vector3Array, Vector2Array, Vector3Array, PoolArray<i32>);
 
 #[derive(NativeClass)]
 #[inherit(Node)]
 pub struct MeshGenerator {
-    mesh_sender: channel::Sender<MeshData>,
-    mesh_receiver: channel::Receiver<MeshData>
+    mesh_sender: channel::Sender<Option<Ref<Spatial>>>,
+    mesh_receiver: channel::Receiver<Option<Ref<Spatial>>>
 }
 
 #[methods]
@@ -38,10 +36,11 @@ impl MeshGenerator {
     }
 
     #[export]
-    fn fetch_mesh(&self, _owner: &Node) -> Option<MeshData> {
-        match self.mesh_receiver.try_recv() {
-            Ok(mesh) => Some(mesh),
-            Err(_) => None,
+    fn _process(&self, owner: &Node, _dt: f64) {
+        if let Ok(mesh) = self.mesh_receiver.try_recv() {
+            if let Some(mesh) = mesh {
+                owner.add_child(mesh, false);
+            }
         }
     }
 }

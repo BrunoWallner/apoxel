@@ -1,6 +1,7 @@
 extends KinematicBody
 
 onready var character = get_node("../Character");
+onready var tcp = get_node("../TcpWrapper");
 
 export var SPEED: float = 1.0;
 export var GRAVITY: float = 10.0;
@@ -79,3 +80,6 @@ func _physics_process(dt: float):
 	# friction
 	velocity.x /= FRICTION;
 	velocity.z /= FRICTION;
+	
+	# sync position with server
+	tcp.move(self.transform.origin);
