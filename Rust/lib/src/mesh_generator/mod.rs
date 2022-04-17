@@ -37,9 +37,11 @@ impl MeshGenerator {
 
     #[export]
     fn _process(&self, owner: &Node, _dt: f64) {
-        if let Ok(mesh) = self.mesh_receiver.try_recv() {
-            if let Some(mesh) = mesh {
-                owner.add_child(mesh, false);
+        for _ in 0..10 {
+            if let Ok(mesh) = self.mesh_receiver.try_recv() {
+                if let Some(mesh) = mesh {
+                    owner.add_child(mesh, false);
+                }
             }
         }
     }

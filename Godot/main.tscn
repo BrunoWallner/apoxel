@@ -1,12 +1,23 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://Character/Character.tscn" type="PackedScene" id=1]
 [ext_resource path="res://ChunkHandle/ChunkHandle.tscn" type="PackedScene" id=2]
 [ext_resource path="res://TcpClient/TcpClient.tscn" type="PackedScene" id=3]
 
+[sub_resource type="ProceduralSky" id=4]
+
 [sub_resource type="Environment" id=3]
+background_mode = 3
+background_sky = SubResource( 4 )
+background_color = Color( 0.34902, 0.560784, 0.784314, 1 )
 ambient_light_color = Color( 0.913725, 0.956863, 0.533333, 1 )
 ambient_light_energy = 0.13
+fog_enabled = true
+fog_color = Color( 0.34902, 0.560784, 0.784314, 1 )
+fog_sun_amount = 1.0
+fog_depth_begin = 400.0
+fog_depth_end = 466.0
+fog_depth_curve = 1.0
 dof_blur_far_distance = 128.52
 dof_blur_far_transition = 10.0
 
@@ -20,7 +31,10 @@ environment = SubResource( 3 )
 
 [node name="Character" parent="main" instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 135.699, -0.170842 )
-SPEED = 5.0
+SPEED = 4.0
+GRAVITY = 40.0
+JUMP = 20.0
+IN_AIR_MOVEMENT_CAP = 1.0
 
 [node name="StaticBody" type="StaticBody" parent="main"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 127.169, 0 )
@@ -32,6 +46,3 @@ shape = SubResource( 2 )
 [node name="TcpWrapper" parent="main" instance=ExtResource( 3 )]
 
 [node name="ChunkHandle" parent="main" instance=ExtResource( 2 )]
-
-[node name="DirectionalLight" type="DirectionalLight" parent="main"]
-transform = Transform( 0.831208, 0.495924, 0.251303, 0, -0.452014, 0.892011, 0.555962, -0.741446, -0.375718, 0, 0, 0 )
