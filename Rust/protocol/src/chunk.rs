@@ -44,6 +44,61 @@ impl Chunk {
 
         }
     }
+    // SIDES
+    pub fn get_left_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
+        let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
+        for z in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                side[z][y] = self.data[0][y][z]
+            }
+        }
+        side
+    }
+    pub fn get_right_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
+        let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
+        for z in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                side[z][y] = self.data[CHUNK_SIZE - 1][y][z]
+            }
+        }
+        side
+    }
+    pub fn get_front_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
+        let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                side[x][y] = self.data[x][y][CHUNK_SIZE - 1]
+            }
+        }
+        side
+    }
+    pub fn get_back_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
+        let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                side[x][y] = self.data[x][y][0]
+            }
+        }
+        side
+    }
+    pub fn get_top_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
+        let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
+        for x in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                side[x][z] = self.data[x][CHUNK_SIZE - 1][z]
+            }
+        }
+        side
+    }
+    pub fn get_bottom_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
+        let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
+        for x in 0..CHUNK_SIZE {
+            for z in 0..CHUNK_SIZE {
+                side[x][z] = self.data[x][0][z]
+            }
+        }
+        side
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -94,7 +94,7 @@ pub fn check_left(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CH
             return false
         }
     } else {
-        return false
+        false
     }
 }
 
@@ -106,7 +106,7 @@ pub fn check_right(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; C
             return false
         }
     } else {
-        return false
+        false
     }
 }
 
@@ -118,7 +118,7 @@ pub fn check_front(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; C
             return false
         }
     } else {
-        return false
+        false
     }
 }
 
@@ -130,7 +130,7 @@ pub fn check_back(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CH
             return false
         }
     } else {
-        return false
+        false
     }
 }
 
@@ -142,7 +142,7 @@ pub fn check_top(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHU
             return false
         }
     } else {
-        return false
+        false
     }
 }
 
@@ -154,6 +154,6 @@ pub fn check_bottom(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; 
             return false
         }
     } else {
-        return false
+        false
     }
 }
