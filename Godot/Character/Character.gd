@@ -1,7 +1,7 @@
 extends KinematicBody
 
 onready var character = get_node("../Character");
-onready var tcp = get_node("../TcpWrapper");
+onready var backend = get_node("../../BackendHandle");
 
 export var SPEED: float = 1.0;
 export var GRAVITY: float = 10.0;
@@ -82,4 +82,4 @@ func _physics_process(dt: float):
 	velocity.z /= FRICTION;
 	
 	# sync position with server
-	tcp.move(self.transform.origin);
+	backend.move(self.transform.origin);

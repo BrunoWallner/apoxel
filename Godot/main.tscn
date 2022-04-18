@@ -1,8 +1,7 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://Character/Character.tscn" type="PackedScene" id=1]
-[ext_resource path="res://ChunkHandle/ChunkHandle.tscn" type="PackedScene" id=2]
-[ext_resource path="res://TcpClient/TcpClient.tscn" type="PackedScene" id=3]
+[ext_resource path="res://Backend/Backend.tscn" type="PackedScene" id=3]
 
 [sub_resource type="ProceduralSky" id=4]
 
@@ -17,7 +16,6 @@ fog_color = Color( 0.34902, 0.560784, 0.784314, 1 )
 fog_sun_amount = 1.0
 fog_depth_begin = 400.0
 fog_depth_end = 466.0
-fog_depth_curve = 1.0
 dof_blur_far_distance = 128.52
 dof_blur_far_transition = 10.0
 
@@ -43,6 +41,4 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 127.169, 0 )
 transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 1.915, 0, 6.384, 0 )
 shape = SubResource( 2 )
 
-[node name="TcpWrapper" parent="main" instance=ExtResource( 3 )]
-
-[node name="ChunkHandle" parent="main" instance=ExtResource( 2 )]
+[node name="BackendHandle" parent="." instance=ExtResource( 3 )]
