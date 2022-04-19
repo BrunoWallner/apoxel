@@ -1,6 +1,7 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://Character/Character.tscn" type="PackedScene" id=1]
+[ext_resource path="res://main.gd" type="Script" id=2]
 [ext_resource path="res://Backend/Backend.tscn" type="PackedScene" id=3]
 
 [sub_resource type="ProceduralSky" id=4]
@@ -19,6 +20,7 @@ fog_depth_begin = 400.0
 fog_depth_end = 466.0
 ssao_enabled = true
 ssao_quality = 2
+ssao_blur = 0
 dof_blur_far_distance = 200.0
 dof_blur_far_transition = 100.0
 dof_blur_far_amount = 0.03
@@ -32,16 +34,17 @@ extents = Vector3( 1, 0.307304, 0.85674 )
 environment = SubResource( 3 )
 
 [node name="main" type="Spatial" parent="."]
+script = ExtResource( 2 )
 
 [node name="Character" parent="main" instance=ExtResource( 1 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 76.1999, -0.170842 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.24852, 93.7695, -18.1665 )
 SPEED = 4.0
 GRAVITY = 40.0
 JUMP = 20.0
 IN_AIR_MOVEMENT_CAP = 1.0
 
 [node name="StaticBody" type="StaticBody" parent="main"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 67.6699, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.24852, 85.2395, -17.9957 )
 
 [node name="CollisionShape" type="CollisionShape" parent="main/StaticBody"]
 transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 1.915, 0, 6.384, 0 )

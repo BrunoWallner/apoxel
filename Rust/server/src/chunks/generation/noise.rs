@@ -5,8 +5,7 @@ pub struct Noise {
 }
 impl Noise {
     pub fn new(seed: u32) -> Self {
-        let noise = OpenSimplex::new();
-        noise.set_seed(seed);
+        let noise = OpenSimplex::new().set_seed(seed);
         Self { noise }
     }
 

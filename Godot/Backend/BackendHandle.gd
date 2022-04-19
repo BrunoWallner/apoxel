@@ -1,12 +1,17 @@
 extends Node;
 
 export var host: String = "0.0.0.0:8000";
+export var login_name: String = "Luca";
 
 onready var client: Node = self.get_node("Backend");
 
 var token: Array = [];
 
 const TOKEN_LENGTH: int = 16;
+
+func terminate():
+	client.terminate();
+	
 
 func _ready():
 	client.establish_connection(host);
@@ -17,12 +22,15 @@ func _ready():
 		file.open("user://token.dat", File.READ);
 		token = file.get_buffer(TOKEN_LENGTH);
 		file.close();
+		self.login();
 	else:
-		self.register("Luca");
-	
-	self.login();
+		self.register(login_name);
 	
 func _process(_dt: float):
+	if Input.is_action_just_pressed("ui_cancel"):
+		#self.terminate();
+		pass
+		
 	# fetching events	
 	var event = client.fetch_event();
 	if event:
@@ -45,6 +53,7 @@ func _process(_dt: float):
 						print("invalid login token");
 						var dir = Directory.new();
 						dir.remove("user://token.dat");
+						self._ready();
 					"Register":
 						print("user already registered");
 						

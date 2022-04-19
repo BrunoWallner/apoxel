@@ -7,7 +7,7 @@ use protocol::chunk::Block;
 use protocol::chunk::CHUNK_SIZE;
 use protocol::chunk::{Chunk, SuperChunk};
 
-const WATER_LEVEL: i64 = 40;
+const WATER_LEVEL: i64 = 30;
 
 pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
     let key = chunk.coord;

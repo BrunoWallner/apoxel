@@ -162,7 +162,7 @@ async fn init(
                                         tokio::spawn(async move {
                                             let superchunk = super::generation::generate(
                                                 Chunk::new(coord),
-                                                176937,
+                                                67593675,
                                             );
                                             handle_clone.push_chunks(superchunk).await;
                                         });
