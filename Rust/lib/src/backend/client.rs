@@ -32,7 +32,7 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
             let (out_tx, out_rx) = channel::unbounded();
     
             // init of output
-            let output = out_rx.clone();
+            let output = out_rx;
             let term = terminator.clone();
             tokio::spawn(async move {
                 loop {
@@ -48,7 +48,7 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
     
             // init of input
             let (in_tx, in_rx) = channel::unbounded();
-            let input = in_tx.clone();
+            let input = in_tx;
             tokio::spawn(async move {
                 loop {
                     if terminator.should_terminate() {

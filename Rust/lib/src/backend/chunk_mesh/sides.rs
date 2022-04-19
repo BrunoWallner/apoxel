@@ -88,11 +88,7 @@ lazy_static!{
 
 pub fn check_left(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]) -> bool {
     if x > 0 {
-        if data[x - 1][y][z].to_category().0 == 0 {
-            return true
-        } else {
-            return false
-        }
+        data[x - 1][y][z].to_category().0 == 0
     } else {
         false
     }
@@ -100,11 +96,7 @@ pub fn check_left(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CH
 
 pub fn check_right(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]) -> bool {
     if x < CHUNK_SIZE - 1 {
-        if data[x + 1][y][z].to_category().0 == 0 {
-            return true
-        } else {
-            return false
-        }
+        data[x + 1][y][z].to_category().0 == 0
     } else {
         false
     }
@@ -112,11 +104,7 @@ pub fn check_right(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; C
 
 pub fn check_front(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]) -> bool {
     if z < CHUNK_SIZE - 1 {
-        if data[x][y][z + 1].to_category().0 == 0 {
-            return true
-        } else {
-            return false
-        }
+        data[x][y][z + 1].to_category().0 == 0
     } else {
         false
     }
@@ -124,11 +112,7 @@ pub fn check_front(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; C
 
 pub fn check_back(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]) -> bool {
     if z > 0  {
-        if data[x][y][z - 1].to_category().0 == 0 {
-            return true
-        } else {
-            return false
-        }
+        data[x][y][z - 1].to_category().0 == 0
     } else {
         false
     }
@@ -136,11 +120,7 @@ pub fn check_back(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CH
 
 pub fn check_top(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]) -> bool {
     if y < CHUNK_SIZE - 1  {
-        if data[x][y + 1][z].to_category().0 == 0 {
-            return true
-        } else {
-            return false
-        }
+        data[x][y + 1][z].to_category().0 == 0
     } else {
         false
     }
@@ -148,11 +128,7 @@ pub fn check_top(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHU
 
 pub fn check_bottom(x: usize, y: usize, z: usize, data: &[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]) -> bool {
     if y > 0  {
-        if data[x][y - 1][z].to_category().0 == 0 {
-            return true
-        } else {
-            return false
-        }
+        data[x][y - 1][z].to_category().0 == 0
     } else {
         false
     }

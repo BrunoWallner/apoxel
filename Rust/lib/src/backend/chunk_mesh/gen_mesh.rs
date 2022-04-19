@@ -61,13 +61,14 @@ pub fn gen(chunk: Chunk, sides: [Option<[[Block; CHUNK_SIZE]; CHUNK_SIZE]>; 6]) 
     (coord, verts, uvs, normals, indices)
 }
 
+#[allow(clippy::needless_range_loop)]
 fn fix_borders(
     data: [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
     sides: [Option<[[Block; CHUNK_SIZE]; CHUNK_SIZE]>; 6],
-    mut verts: &mut Vector3Array, 
-    mut uvs: &mut Vector2Array, 
-    mut normals: &mut Vector3Array,
-    mut indices: &mut PoolArray<i32>,
+    verts: &mut Vector3Array, 
+    uvs: &mut Vector2Array, 
+    normals: &mut Vector3Array,
+    indices: &mut PoolArray<i32>,
 ) {
     if let Some(left) = sides[0] {
         for z in 0..CHUNK_SIZE {
@@ -76,11 +77,11 @@ fn fix_borders(
                 let side_block = left[z][y];
                 if own_block.to_category().0 == 0 && side_block.to_category().0 != 0 {
                     let side = RIGHT.clone().apply_vertex_position(Vector3{x: -1.0, y: y as f32, z: z as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side);
+                    push_side(verts, uvs, normals, indices, &side);
                 }
                 if own_block.to_category().0 != 0 && side_block.to_category().0 == 0 {
                     let side = LEFT.clone().apply_vertex_position(Vector3{x: 0.0, y: y as f32, z: z as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side);
+                    push_side(verts, uvs, normals, indices, &side);
                 }
             }
         }
@@ -92,11 +93,11 @@ fn fix_borders(
                 let side_block = right[z][y];
                 if own_block.to_category().0 == 0 && side_block.to_category().0 != 0 {
                     let side = LEFT.clone().apply_vertex_position(Vector3{x: CHUNK_SIZE as f32, y: y as f32, z: z as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side);
+                    push_side(verts, uvs, normals, indices, &side);
                 }
                 if own_block.to_category().0 != 0 && side_block.to_category().0 == 0 {
                     let side = RIGHT.clone().apply_vertex_position(Vector3{x: (CHUNK_SIZE - 1) as f32, y: y as f32, z: z as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side);
+                    push_side(verts, uvs, normals, indices, &side);
                 }
             }
         }
@@ -109,11 +110,11 @@ fn fix_borders(
                 let side_block = front[x][y];
                 if own_block.to_category().0 == 0 && side_block.to_category().0 != 0 {
                     let side = BACK.clone().apply_vertex_position(Vector3{x: x as f32, y: y as f32, z: CHUNK_SIZE as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
                 if own_block.to_category().0 != 0 && side_block.to_category().0 == 0 {
                     let side = FRONT.clone().apply_vertex_position(Vector3{x: x as f32, y: y as f32, z: (CHUNK_SIZE - 1) as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side);
+                    push_side(verts, uvs, normals, indices, &side);
                 }
             }
         }
@@ -125,11 +126,11 @@ fn fix_borders(
                 let side_block = back[x][y];
                 if own_block.to_category().0 == 0 && side_block.to_category().0 != 0 {
                     let side = FRONT.clone().apply_vertex_position(Vector3{x: x as f32, y: y as f32, z: -1.0});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
                 if own_block.to_category().0 != 0 && side_block.to_category().0 == 0 {
                     let side = BACK.clone().apply_vertex_position(Vector3{x: x as f32, y: y as f32, z: 0.0}); 
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
             }
         }  
@@ -141,11 +142,11 @@ fn fix_borders(
                 let side_block = top[x][z];
                 if own_block.to_category().0 == 0 && side_block.to_category().0 != 0 {
                     let side = BOTTOM.clone().apply_vertex_position(Vector3{x: x as f32, y: CHUNK_SIZE as f32, z: z as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
                 if own_block.to_category().0 != 0 && side_block.to_category().0 == 0 {
                     let side = TOP.clone().apply_vertex_position(Vector3{x: x as f32, y: (CHUNK_SIZE - 1) as f32, z: z as f32}); 
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
             }
         }  
@@ -157,11 +158,11 @@ fn fix_borders(
                 let side_block = bottom[x][z];
                 if own_block.to_category().0 == 0 && side_block.to_category().0 != 0 {
                     let side = TOP.clone().apply_vertex_position(Vector3{x: x as f32, y: -1.0, z: z as f32});
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
                 if own_block.to_category().0 != 0 && side_block.to_category().0 == 0 {
                     let side = BOTTOM.clone().apply_vertex_position(Vector3{x: x as f32, y: 0.0, z: z as f32}); 
-                    push_side(&mut verts, &mut uvs, &mut normals, &mut indices, &side); 
+                    push_side(verts, uvs, normals, indices, &side); 
                 }
             }
         }  

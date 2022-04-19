@@ -70,15 +70,15 @@ impl Backend {
 
 						chunk_mesh::init_generation(chunk_thread_receiver, chunk_sender, self.terminator.clone());
 						init_event_handle(
-							bridge.clone(),
+							bridge,
 							event_sender,
 							chunk_thread_sender,
 							self.terminator.clone(),
 						);
 
-						return true;
+						true
 				} else {
-						return false;
+						false
 				}
 		}
 
@@ -106,15 +106,15 @@ impl Backend {
 
 					match ev {
 							Ok(event) => {
-									bridge.send(event.clone());
+									bridge.send(event);
 							}
 							Err(e) => {
 									godot_print!("attempted to send invalid tcp event:\n{}\n{:?}", e, event);
 							}
 					}
-					return true;
+					true
 			} else {
-				return false;
+				false
 			}
 		}
 

@@ -35,41 +35,23 @@ pub fn init_generation(
                 let mut sides: [Option<[[Block; CHUNK_SIZE]; CHUNK_SIZE]>; 6] = [None; 6];
                 let coord = chunk.coord;
                 // left side
-                sides[0] = match chunk_map.get(&[coord[0] - 1, coord[1], coord[2]]) {
-                    Some(c) => Some(c.get_right_side()),
-                    None => None,
-                };
+                sides[0] = chunk_map.get(&[coord[0] - 1, coord[1], coord[2]]).map(|c| c.get_right_side());
                 // right side
-                sides[1] = match chunk_map.get(&[coord[0] + 1, coord[1], coord[2]]) {
-                    Some(c) => Some(c.get_left_side()),
-                    None => None,
-                };
+                sides[1] = chunk_map.get(&[coord[0] + 1, coord[1], coord[2]]).map(|c| c.get_left_side());
                 // front side
-                sides[2] = match chunk_map.get(&[coord[0], coord[1], coord[2] + 1]) {
-                    Some(c) => Some(c.get_back_side()),
-                    None => None,
-                };
+                sides[2] = chunk_map.get(&[coord[0], coord[1], coord[2] + 1]).map(|c| c.get_back_side());
                 // back side
-                sides[3] = match chunk_map.get(&[coord[0], coord[1], coord[2] - 1]) {
-                    Some(c) => Some(c.get_front_side()),
-                    None => None,
-                };
+                sides[3] = chunk_map.get(&[coord[0], coord[1], coord[2] - 1]).map(|c| c.get_front_side());
                 // top side
-                sides[4] = match chunk_map.get(&[coord[0], coord[1] + 1, coord[2]]) {
-                    Some(c) => Some(c.get_bottom_side()),
-                    None => None,
-                };
+                sides[4] = chunk_map.get(&[coord[0], coord[1] + 1, coord[2]]).map(|c| c.get_bottom_side());
                 // bottom side
-                sides[5] = match chunk_map.get(&[coord[0], coord[1] - 1, coord[2]]) {
-                    Some(c) => Some(c.get_top_side()),
-                    None => None,
-                };
+                sides[5] = chunk_map.get(&[coord[0], coord[1] - 1, coord[2]]).map(|c| c.get_top_side());
     
                 let sender = chunk_mesh_sender.clone();
                 pool.execute(move || {
                     let mesh = gen_mesh::gen(chunk, sides);
                     let chunk = gen_chunk::gen(mesh);
-                    let _ = sender.send(chunk.clone());
+                    let _ = sender.send(chunk);
                 });
             }
         }
