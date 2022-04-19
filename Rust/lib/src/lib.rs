@@ -2,7 +2,7 @@
 extern crate lazy_static;
 
 mod backend;
-//mod mesh_generator;
+mod terminator;
 
 use backend::Backend;
 

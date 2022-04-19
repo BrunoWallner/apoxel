@@ -9,8 +9,10 @@ use protocol::{reader::Reader as TcpReader, writer::Writer as TcpWriter};
 
 use gdnative::prelude::*;
 
+use crate::terminator::Terminator;
 
-pub fn init(host: String, runtime: &Runtime) -> Option<Bridge> {
+
+pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<Bridge> {
     if let Some((mut reader, mut writer)) = runtime.block_on(async move {
         let socket = TcpStream::connect(host.clone()).await;
         match socket {
@@ -31,10 +33,16 @@ pub fn init(host: String, runtime: &Runtime) -> Option<Bridge> {
     
             // init of output
             let output = out_rx.clone();
+            let term = terminator.clone();
             tokio::spawn(async move {
                 loop {
-                    let ev = output.recv().unwrap();
-                    writer.send_event(&Event::ClientToServer(ev)).await.unwrap();
+                    if term.should_terminate() {
+                        drop(writer);
+                        break;
+                    }
+                    if let Ok(ev) = output.recv() {
+                        let _ = writer.send_event(&Event::ClientToServer(ev)).await;
+                    }
                 }
             });
     
@@ -43,13 +51,19 @@ pub fn init(host: String, runtime: &Runtime) -> Option<Bridge> {
             let input = in_tx.clone();
             tokio::spawn(async move {
                 loop {
-                    let event = reader.get_event().await.unwrap();
-                    match event {
-                        Event::ServerToClient(ev) => {
-                            input.send(ev).unwrap();
-                        }
-                        Event::ClientToServer(_) | Event::Invalid => {
-                            godot_print!("received invalid event from server (client.rs)");
+                    if terminator.should_terminate() {
+                        drop(reader);
+                        drop(input);
+                        break;
+                    }
+                    if let Ok(event) = reader.get_event().await {
+                        match event {
+                            Event::ServerToClient(ev) => {
+                                let _ = input.send(ev);
+                            }
+                            Event::ClientToServer(_) | Event::Invalid => {
+                                godot_print!("received invalid event from server (client.rs)");
+                            }
                         }
                     }
                 }

@@ -27,7 +27,9 @@ pub fn gen(data: (Coord, Vector3Array, Vector2Array, Vector3Array, PoolArray<i32
         let mesh_collision_shape = array_mesh.create_trimesh_shape();
 
         let collision_shape = CollisionShape::new();
-        collision_shape.set_shape(mesh_collision_shape.unwrap());
+        if let Some(shape) = mesh_collision_shape {
+            collision_shape.set_shape(shape);
+        }
 
         let static_body = StaticBody::new();
         static_body.add_child(collision_shape, false);

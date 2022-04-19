@@ -17,6 +17,6 @@ impl Bridge {
     
     pub fn send(&self, event: ClientToServer) {
         //godot_print!("event input");
-        self.event_sender.send(event).unwrap();
+        let _ = self.event_sender.send(event);
     }
 }

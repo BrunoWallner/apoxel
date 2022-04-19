@@ -15,6 +15,8 @@ use std::thread;
 use std::time::Instant;
 use crossbeam::channel;
 
+use crate::terminator::Terminator;
+
 const MAX_CHUNK_TIME: u128 = 1000; // in µs
 
 #[derive(NativeClass)]
@@ -25,6 +27,8 @@ pub struct Backend {
 
 		event_receiver: Option<channel::Receiver<(String, Vec<Variant>)>>,
 		chunk_mesh_receiver: Option<channel::Receiver<Option<Ref<Spatial>>>>,
+
+		terminator: Terminator,
 }
 
 #[methods]
@@ -41,13 +45,20 @@ impl Backend {
 
 						event_receiver: None,
 						chunk_mesh_receiver: None,
+
+						terminator: Terminator::new(),
 				}
 		}
 
 		#[export]
+		fn terminate(&mut self, _owner: &Node) {
+			self.terminator.terminate();
+		}
+
+		#[export]
 		fn establish_connection(&mut self, _owner: &Node, host: String) -> bool {
-				if let Some( bridge ) = client::init(host, &self.runtime) {
-						self.bridge = Some(bridge);
+				if let Some( bridge ) = client::init(host, &self.runtime, self.terminator.clone()) {
+						self.bridge = Some(bridge.clone());
 
 						// WARN: might lead to missing chunks if bounded
 						let (chunk_sender, chunk_receiver) = channel::bounded(100);
@@ -57,11 +68,12 @@ impl Backend {
 						self.event_receiver = Some(event_receiver);
 						self.chunk_mesh_receiver = Some(chunk_receiver);
 
-						chunk_mesh::init_generation(chunk_thread_receiver, chunk_sender);
+						chunk_mesh::init_generation(chunk_thread_receiver, chunk_sender, self.terminator.clone());
 						init_event_handle(
-							self.bridge.as_ref().unwrap().clone(), // wtf
+							bridge.clone(),
 							event_sender,
 							chunk_thread_sender,
+							self.terminator.clone(),
 						);
 
 						return true;
@@ -137,18 +149,22 @@ fn init_event_handle(
 	bridge: Bridge,
 	event_sender: channel::Sender<(String, Vec<Variant>)>,
 	chunk_sender: channel::Sender<Chunk>,
+	terminator: Terminator,
 ) {
 	thread::spawn(move || loop {
+		if terminator.should_terminate() {
+			break;
+		}
 		if let Some(event) = bridge.receive() {
 			match event {
 				ServerToClient::ChunkUpdate(chunk) => {
-					chunk_sender.send(chunk).unwrap();
+					let _ = chunk_sender.send(chunk);
 				}
 				ServerToClient::Token(token) => {
-					event_sender.send( (String::from("Token"), vec![Variant::new(token.to_vec())]) ).unwrap();
+					let _ = event_sender.send( (String::from("Token"), vec![Variant::new(token.to_vec())]) );
 				}
 				ServerToClient::Error(error) => {
-					event_sender.send( (String::from("Error"), vec![Variant::new(format!("{:?}", error))]) ).unwrap();
+					let _ = event_sender.send( (String::from("Error"), vec![Variant::new(format!("{:?}", error))]) );
 				}
 			}
 		}
