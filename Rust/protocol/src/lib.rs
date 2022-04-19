@@ -8,6 +8,8 @@ pub type Token = [u8; 16];
 pub type Coord = [i64; 3];
 pub type PlayerCoord = [f64; 3];
 
+pub const MAX_EVENTS_PER_SECOND: u64 = 20;
+
 pub fn calculate_chunk_distance(p1: &Coord, p2: &Coord) -> i64 {
     let distance = (( 
         (p1[0] - p2[0]).pow(2) +

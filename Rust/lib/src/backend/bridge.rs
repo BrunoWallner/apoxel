@@ -1,6 +1,6 @@
 use crossbeam::channel;
 
-use protocol::event::{ServerToClient, ClientToServer};
+use protocol::event::{ClientToServer, ServerToClient};
 
 #[derive(Clone, Debug)]
 pub struct Bridge {
@@ -14,7 +14,7 @@ impl Bridge {
             Err(_) => None,
         }
     }
-    
+
     pub fn send(&self, event: ClientToServer) {
         //godot_print!("event input");
         let _ = self.event_sender.send(event);

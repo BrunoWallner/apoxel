@@ -19,11 +19,13 @@ fog_sun_amount = 1.0
 fog_depth_begin = 400.0
 fog_depth_end = 466.0
 ssao_enabled = true
+ssao_bias = 0.001
 ssao_quality = 2
-ssao_blur = 0
+ssao_blur = 2
+dof_blur_far_enabled = true
 dof_blur_far_distance = 200.0
-dof_blur_far_transition = 100.0
-dof_blur_far_amount = 0.03
+dof_blur_far_transition = 200.0
+dof_blur_far_amount = 0.01
 dof_blur_far_quality = 2
 glow_bloom = 1.0
 

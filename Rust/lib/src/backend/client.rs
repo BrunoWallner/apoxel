@@ -8,9 +8,13 @@ use protocol::event::Event;
 use protocol::{reader::Reader as TcpReader, writer::Writer as TcpWriter};
 
 use gdnative::prelude::*;
-
 use crate::terminator::Terminator;
 
+use protocol::MAX_EVENTS_PER_SECOND;
+use std::{
+    thread::sleep,
+    time::Duration,
+};
 
 pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<Bridge> {
     if let Some((mut reader, mut writer)) = runtime.block_on(async move {
@@ -20,17 +24,15 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
                 let (read, write) = socket.into_split();
                 let reader = TcpReader::new(read);
                 let writer = TcpWriter::new(write);
-        
-                Some( (reader, writer) )
+
+                Some((reader, writer))
             }
-            Err(_) => {
-                None
-            }
+            Err(_) => None,
         }
     }) {
         let bridge = runtime.block_on(async move {
             let (out_tx, out_rx) = channel::unbounded();
-    
+
             // init of output
             let output = out_rx;
             let term = terminator.clone();
@@ -43,9 +45,10 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
                     if let Ok(ev) = output.recv() {
                         let _ = writer.send_event(&Event::ClientToServer(ev)).await;
                     }
+                    sleep(Duration::from_micros(1000_000 / MAX_EVENTS_PER_SECOND));
                 }
             });
-    
+
             // init of input
             let (in_tx, in_rx) = channel::unbounded();
             let input = in_tx;
@@ -66,15 +69,16 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
                             }
                         }
                     }
+                    sleep(Duration::from_micros(1000_000 / MAX_EVENTS_PER_SECOND));
                 }
             });
-    
+
             Bridge {
                 event_receiver: in_rx,
                 event_sender: out_tx,
             }
         });
-        Some(bridge)   
+        Some(bridge)
     } else {
         None
     }

@@ -7,7 +7,7 @@ pub struct Terminator {
 impl Terminator {
     pub fn new() -> Self {
         Self {
-            should_terminate: Arc::new(Mutex::new(false))
+            should_terminate: Arc::new(Mutex::new(false)),
         }
     }
     pub fn terminate(&self) {

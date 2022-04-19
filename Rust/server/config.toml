@@ -4,4 +4,4 @@ port = 8000
 
 [chunks]
 render_distance = 16
-generations_per_cycle = 250
+generations_per_cycle = 25

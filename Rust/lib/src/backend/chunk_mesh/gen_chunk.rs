@@ -1,11 +1,23 @@
+// TAKES 120 MILLISECONDS, HUGE PERFORMANCE / LATENCY PENALTY;
+// but at least it runs not on main thread;
+
+
 use gdnative::prelude::*;
 
 use protocol::chunk::CHUNK_SIZE;
 use protocol::Coord;
 
-use gdnative::api::{Mesh, ArrayMesh, CollisionShape, StaticBody, MeshInstance};
+use gdnative::api::{ArrayMesh, CollisionShape, Mesh, MeshInstance, StaticBody};
 
-pub fn gen(data: (Coord, Vector3Array, Vector2Array, Vector3Array, PoolArray<i32>)) -> Option<Ref<Spatial>> {
+pub fn gen(
+    data: (
+        Coord,
+        Vector3Array,
+        Vector2Array,
+        Vector3Array,
+        PoolArray<i32>,
+    ),
+) -> Option<Ref<Spatial>> {
     let coord = data.0;
     let verts = data.1;
     let uvs = data.2;
@@ -23,7 +35,12 @@ pub fn gen(data: (Coord, Vector3Array, Vector2Array, Vector3Array, PoolArray<i32
         arr.set(Mesh::ARRAY_INDEX as i32, indices);
 
         let array_mesh = ArrayMesh::new();
-        array_mesh.add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arr.into_shared(), VariantArray::new().into_shared(), 2194432);
+        array_mesh.add_surface_from_arrays(
+            Mesh::PRIMITIVE_TRIANGLES,
+            arr.into_shared(),
+            VariantArray::new().into_shared(),
+            2194432,
+        );
         let mesh_collision_shape = array_mesh.create_trimesh_shape();
 
         let collision_shape = CollisionShape::new();
@@ -39,10 +56,10 @@ pub fn gen(data: (Coord, Vector3Array, Vector2Array, Vector3Array, PoolArray<i32
         mesh_instance.add_child(static_body, false);
 
         let spatial = Spatial::new();
-        spatial.translate(Vector3{
-            x: coord[0] as f32 * CHUNK_SIZE as f32, 
-            y: coord[1] as f32 * CHUNK_SIZE as f32, 
-            z: coord[2] as f32 * CHUNK_SIZE as f32
+        spatial.translate(Vector3 {
+            x: coord[0] as f32 * CHUNK_SIZE as f32,
+            y: coord[1] as f32 * CHUNK_SIZE as f32,
+            z: coord[2] as f32 * CHUNK_SIZE as f32,
         });
         spatial.add_child(mesh_instance, false);
 
