@@ -3,18 +3,16 @@ name = "server"
 version = "0.1.0"
 edition = "2021"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-protocol = { path = "../protocol" } 
+protocol = { path = "../protocol" }
 
 tokio = { version = "1.17.0", features = ["full"] }
 
-lazy_static = "1.4.0"
-toml = "0.5.8"
-serde = { version = "1.0.136", features = ["derive"] }
-rand = "0.8.5"
+crossbeam = "0.8.1"
 
-noise = "0.7.0"
-splines = "4.1.0"
+anyhow = "1.0.57"
 
 log = "0.4.16"
 fern = "0.6.0"
