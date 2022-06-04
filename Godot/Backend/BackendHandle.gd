@@ -5,6 +5,7 @@ export var login_name: String = "Luca";
 
 onready var client: Node = self.get_node("Backend");
 
+var logged_in: bool = false;
 var token: Array = [];
 
 const TOKEN_LENGTH: int = 16;
@@ -40,6 +41,7 @@ func _process(_dt: float):
 				# login 
 				token = event[1][0];
 				self.login();
+				self.logged_in = true;
 				
 				var file = File.new();
 				file.open("user://token.dat", File.WRITE);

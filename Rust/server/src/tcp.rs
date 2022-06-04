@@ -1,11 +1,11 @@
+use std::net::SocketAddr;
+
 use tokio::io;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::{TcpStream, TcpListener, ToSocketAddrs};
 use crate::channel;
 use protocol::event::Event;
 use protocol::{reader, writer};
-
-use log::info;
 
 pub struct Tcp {
     listener: TcpListener,
@@ -16,9 +16,8 @@ impl Tcp {
         Ok(Self{listener})
     }
 
-    pub async fn accept(&self) -> io::Result<(reader::Reader<OwnedReadHalf>, channel::Sender<Event>)> {
-        let (stream, info) = self.listener.accept().await?;
-        info!("new connection: {}", info);
+    pub async fn accept(&self) -> io::Result<((reader::Reader<OwnedReadHalf>, channel::Sender<Event>), SocketAddr)> {
+        let (stream, addr) = self.listener.accept().await?;
 
         let (r, w) = TcpStream::into_split(stream);
         let reader = reader::Reader::new(r);
@@ -33,6 +32,6 @@ impl Tcp {
             }
         });
 
-        Ok((reader, sender))
+        Ok(((reader, sender), addr))
     }
 }

@@ -82,4 +82,5 @@ func _physics_process(dt: float):
 	velocity.z /= FRICTION;
 	
 	# sync position with server
-	backend.move(self.transform.origin);
+	if backend.logged_in:
+		backend.move(self.transform.origin);
