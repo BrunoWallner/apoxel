@@ -1,4 +1,5 @@
 mod client;
+mod users;
 mod logger;
 mod channel;
 mod tcp;
@@ -25,11 +26,13 @@ async fn main() -> Result<()> {
         if let Ok( (rw, addr)) = tcp.accept().await {
             info!("new connection: {}", addr);
             tokio::spawn(async move {
-                client::init(rw).await;
+                client::init(rw, addr).await;
+                info!("exited success");
             });
         } else {
             warn!("failed to accept client")
         }
+        info!("main loop iteration");
     }
 
 

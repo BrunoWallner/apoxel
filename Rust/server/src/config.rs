@@ -3,9 +3,16 @@ use std::io::Read;
 
 use serde::{Serialize, Deserialize};
 
+// delays startup time
 lazy_static! {
     pub static ref CONFIG: Config = {
-        Config::get().unwrap()
+        match Config::get() {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("invalid config: {}", e);
+                std::process::exit(1);
+            }
+        }
     };
 }
 
@@ -15,16 +22,13 @@ pub struct Config {
     pub chunks: Chunks,
 }
 impl Config {
-    pub fn get() -> Result<Self, ()> {
+    // delays startup time
+    pub fn get() -> Result<Self, toml::de::Error> {
         let mut file = File::open("config.toml").unwrap();
         let mut content = vec![];
         file.read_to_end(&mut content).unwrap();
 
-        if let Ok(config) = toml::from_slice(&content) {
-            return Ok(config)
-        } else {
-            return Err(());
-        }
+        toml::from_slice(&content)
     }
 }
 

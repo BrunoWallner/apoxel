@@ -196,6 +196,7 @@ pub struct SuperChunk {
 
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
 pub enum Block {
     None,
     Air,
