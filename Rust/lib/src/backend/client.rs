@@ -10,12 +10,6 @@ use protocol::{reader::Reader as TcpReader, writer::Writer as TcpWriter};
 use gdnative::prelude::*;
 use crate::terminator::Terminator;
 
-use protocol::MAX_EVENTS_PER_SECOND;
-use std::{
-    thread::sleep,
-    time::Duration,
-};
-
 pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<Bridge> {
     if let Some((mut reader, mut writer)) = runtime.block_on(async move {
         let socket = TcpStream::connect(host.clone()).await;
@@ -45,7 +39,6 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
                     if let Ok(ev) = output.recv() {
                         let _ = writer.send_event(&Event::ClientToServer(ev)).await;
                     }
-                    sleep(Duration::from_micros(1000_000 / MAX_EVENTS_PER_SECOND));
                 }
             });
 
@@ -69,7 +62,6 @@ pub fn init(host: String, runtime: &Runtime, terminator: Terminator) -> Option<B
                             }
                         }
                     }
-                    sleep(Duration::from_micros(1000_000 / MAX_EVENTS_PER_SECOND));
                 }
             });
 

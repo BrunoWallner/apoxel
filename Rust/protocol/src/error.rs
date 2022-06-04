@@ -5,4 +5,5 @@ pub enum ClientError {
     Register,
     Login,
     Logoff,
+    ConnectionReset,
 }

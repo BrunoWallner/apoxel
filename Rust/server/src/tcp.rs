@@ -28,6 +28,7 @@ impl Tcp {
         tokio::spawn(async move {
             loop {
                 if let Some(event) = receiver.recv() {
+                    log::info!("sending ev to client: {:?}", event);
                     writer.send_event(&event).await.unwrap();
                 } else {
                     // break if client disconnects and client sender gets dropped, very important

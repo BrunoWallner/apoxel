@@ -21,18 +21,21 @@ async fn main() -> Result<()> {
     let tcp = tcp::Tcp::init("0.0.0.0:8000").await?;
     info!("server is listening on {}", addr);
 
+    let users = users::Users::init();
+
     // accepting clients
     loop {
         if let Ok( (rw, addr)) = tcp.accept().await {
             info!("new connection: {}", addr);
+
+            let users = users.clone();
+
             tokio::spawn(async move {
-                client::init(rw, addr).await;
-                info!("exited success");
+                client::init(rw, addr, users).await;
             });
         } else {
             warn!("failed to accept client")
         }
-        info!("main loop iteration");
     }
 
 

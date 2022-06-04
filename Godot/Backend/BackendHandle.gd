@@ -38,10 +38,10 @@ func _process(_dt: float):
 		var type = event[0];
 		match type:
 			"Token":
-				# login 
+				# login
+				# assuming that the token the server gave is correct
 				token = event[1][0];
 				self.login();
-				self.logged_in = true;
 				
 				var file = File.new();
 				file.open("user://token.dat", File.WRITE);
@@ -56,8 +56,13 @@ func _process(_dt: float):
 						var dir = Directory.new();
 						dir.remove("user://token.dat");
 						self._ready();
+						self.logged_in = false;
 					"Register":
 						print("user already registered");
+						
+					"ConnectionReset":
+						print("connection reset");
+						self.logged_in = false;
 						
 						
 
@@ -76,6 +81,7 @@ func login():
 		var token_string: String = str(token).replace(" ", "");
 		var string = '{"Login":{"token":' + token_string + '}}';
 		client.send(string);
+		self.logged_in = true;
 	
 
 func move(pos: Vector3):

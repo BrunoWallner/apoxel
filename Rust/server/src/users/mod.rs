@@ -5,7 +5,8 @@ use protocol::{Token, PlayerCoord};
 use std::sync::Arc;
 
 
-type UserModFn = Arc<dyn Fn(&mut User) + Send + Sync>;
+// type UserModFn = Arc<dyn Fn(&mut User) + Send + Sync>;
+type UserModFn = fn(&mut User);
 
 #[derive(Clone)]
 enum Instruction {
@@ -70,34 +71,31 @@ impl Users {
     pub fn register(&self, name: String) -> Option<Token> {
         let (tx, rx) = channel();
         self.sender.send(Instruction::Register{name, token: tx}).unwrap();
-        if let Some(token) = rx.recv() {
-            return token
-        } else {
-            return None
+        match rx.recv() {
+            Some(success) => success,
+            None => None
         }
     }
 
     pub fn login(&self, token: Token) -> bool {
         let (tx, rx) = channel();
         self.sender.send(Instruction::Login{token, success: tx}).unwrap();
-        if let Some(success) = rx.recv() {
-            return success
-        } else {
-            return false
+        match rx.recv() {
+            Some(success) => success,
+            None => false
         }
     }
 
     pub fn logoff(&self, token: Token) -> bool {
         let (tx, rx) = channel();
         self.sender.send(Instruction::Logoff{token, success: tx}).unwrap();
-        if let Some(success) = rx.recv() {
-            return success
-        } else {
-            return false
+        match rx.recv() {
+            Some(success) => success,
+            None => false
         }
     }
 
-    pub fn get_User(&self, token: Token) -> Option<User> {
+    pub fn get_user(&self, token: Token) -> Option<User> {
         let (tx, rx) = channel();
         self.sender.send(Instruction::GetUser{token, user: tx}).unwrap();
         match rx.recv() {
@@ -106,7 +104,7 @@ impl Users {
         }
     }
 
-    pub fn mod_User(&self, token: Token, mod_fn: UserModFn) {
+    pub fn mod_user(&self, token: Token, mod_fn: UserModFn) {
         self.sender.send(Instruction::ModUser{token, mod_fn}).unwrap();
     }
 }
