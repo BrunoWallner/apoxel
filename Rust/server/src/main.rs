@@ -1,5 +1,6 @@
 mod client;
 mod users;
+mod chunks;
 mod logger;
 mod channel;
 mod tcp;
@@ -22,14 +23,16 @@ async fn main() -> Result<()> {
     info!("server is listening on {}", addr);
 
     let users = users::Users::init();
+    let chunk_handle = chunks::ChunkHandle::init();
 
     // accepting clients
     loop {
         if let Ok( (rw, addr)) = tcp.accept().await {
             let users = users.clone();
+            let chunk_handle = chunk_handle.clone();
 
             tokio::spawn(async move {
-                client::init(rw, addr, users).await;
+                client::init(rw, addr, users, chunk_handle).await;
             });
         }
     }

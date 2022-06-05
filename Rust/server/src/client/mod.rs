@@ -8,6 +8,7 @@ use protocol::error::ClientError;
 use protocol::Token;
 use crate::users::Users;
 use crate::users::UserModInstruction;
+use crate::chunks::ChunkHandle;
 
 use log::*;
 
@@ -18,6 +19,7 @@ pub async fn init(
     rw: (Reader<OwnedReadHalf>, Sender<Event>),
     addr: SocketAddr,
     users: Users,
+    chunk_handle: ChunkHandle,
 ) {
     let mut reader = rw.0;
     let sender = rw.1;
