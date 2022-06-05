@@ -15,7 +15,7 @@ extern crate lazy_static;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _logger = logger::setup().unwrap();
+    logger::setup().unwrap();
     
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), CONFIG.connection.port);
     let tcp = tcp::Tcp::init("0.0.0.0:8000").await?;
@@ -26,15 +26,11 @@ async fn main() -> Result<()> {
     // accepting clients
     loop {
         if let Ok( (rw, addr)) = tcp.accept().await {
-            info!("new connection: {}", addr);
-
             let users = users.clone();
 
             tokio::spawn(async move {
                 client::init(rw, addr, users).await;
             });
-        } else {
-            warn!("failed to accept client")
         }
     }
 

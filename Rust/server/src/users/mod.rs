@@ -51,8 +51,8 @@ impl User {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let mut token: Token = [0_u8; 16];
-        for i in 0..16 {
-            token[i] = rng.gen();
+        for t in token.iter_mut() {
+            *t = rng.gen();
         }
 
         token
@@ -85,19 +85,13 @@ impl Users {
     pub fn login(&self, token: Token) -> bool {
         let (tx, rx) = channel();
         self.sender.send(Instruction::Login{token, success: tx}).unwrap();
-        match rx.recv() {
-            Some(success) => success,
-            None => false
-        }
+        rx.recv().unwrap_or(false)
     }
 
     pub fn logoff(&self, token: Token) -> bool {
         let (tx, rx) = channel();
         self.sender.send(Instruction::Logoff{token, success: tx}).unwrap();
-        match rx.recv() {
-            Some(success) => success,
-            None => false
-        }
+        rx.recv().unwrap_or(false)
     }
 
     pub fn get_user(&self, token: Token) -> Option<User> {

@@ -47,7 +47,11 @@ pub async fn init(
                             if users.login(token) {
                                 user_token = Some(token);
                                 user_name = match users.get_user(token) {
-                                    Some(user) => Some(user.name),
+                                    Some(user) => {
+                                        let name = user.name;
+                                        info!("{} logged in at: {:?}", name, user.pos);
+                                        Some(name)
+                                    }
                                     None => None
                                 };
                             } else {
@@ -59,7 +63,7 @@ pub async fn init(
                             if let Some(token) = user_token {
                                 users.mod_user(token, UserModInstruction::Move(coord));
                             } else {
-                                warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or(String::from("")), addr);
+                                warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or_else(||String::from("")), addr);
                                 sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
                                 break;
                             }
@@ -69,7 +73,7 @@ pub async fn init(
                             if user_token.is_some() {
 
                             } else {
-                                warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or(String::from("")), addr);
+                                warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or_else(||String::from("")), addr);
                                 sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
                                 break;
                             }

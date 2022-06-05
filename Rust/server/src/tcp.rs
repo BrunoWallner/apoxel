@@ -27,13 +27,8 @@ impl Tcp {
         // INFO: channel has to be bounded, bc otherwise tokio's stack will overflow in debug mode
         let (sender, receiver): (channel::Sender<Event>, channel::Receiver<Event>) = channel::bounded_channel(1024);
         tokio::spawn(async move {
-            loop {
-                if let Some(event) = receiver.recv() {
-                    writer.send_event(&event).await.unwrap();
-                } else {
-                    // break if client disconnects and client sender gets dropped, very important
-                    break
-                }
+            while let Some(event) = receiver.recv() {
+                writer.send_event(&event).await.unwrap();
             }
         });
 
