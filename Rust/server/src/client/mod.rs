@@ -1,5 +1,4 @@
 use std::net::SocketAddr;
-
 use tokio::net::tcp::OwnedReadHalf;
 use crate::channel::Sender;
 use protocol::reader::Reader;
@@ -27,74 +26,70 @@ pub async fn init(
     let mut user_token: Option<Token> = None; // for loggin off in case of unexpected disonnection
     let mut user_name: Option<String> = None;
 
-    loop {
-        if let Ok(event) = reader.get_event().await {
-            match event {
-                Event::ClientToServer(event) => {
-                    use protocol::event::ClientToServer::*;
-                    // WARN! STACK OVERFLOW
-                    match event {
-                        Register { name } => {
-                            if let Some(token) = users.register(name.clone()) {
-                                user_token = Some(token);
-                                user_name = Some(name);
-                                sender.send(Event::ServerToClient(ServerToClient::Token(token))).unwrap();
-                            } else {
-                                sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::Register))).unwrap();
-                            }
-                        },
-                        Login { token } => {
+    while let Ok(event) = reader.get_event().await {
+        match event {
+            Event::ClientToServer(event) => {
+                use protocol::event::ClientToServer::*;
+                // WARN! STACK OVERFLOW
+                match event {
+                    Register { name } => {
+                        if let Some(token) = users.register(name.clone()) {
                             user_token = Some(token);
+                            user_name = Some(name);
+                            sender.send(Event::ServerToClient(ServerToClient::Token(token))).unwrap();
+                        } else {
+                            sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::Register))).unwrap();
+                        }
+                    },
+                    Login { token } => {
+                        user_token = Some(token);
 
-                            if users.login(token) {
-                                user_token = Some(token);
-                                user_name = match users.get_user(token) {
-                                    Some(user) => {
-                                        let name = user.name;
-                                        info!("{} logged in at: {:?}", name, user.pos);
-                                        Some(name)
-                                    }
-                                    None => None
-                                };
-                            } else {
-                                // WARN! STACK OVERFLOW
-                                sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::Login))).unwrap();
-                            }
-                        },
-                        Move { coord } => {
-                            if let Some(token) = user_token {
-                                users.mod_user(token, UserModInstruction::Move(coord));
-                            } else {
-                                warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or_else(||String::from("")), addr);
-                                sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
-                                break;
-                            }
-                        },
-                        #[allow(unused_variables)]
-                        PlaceStructure { pos, structure } => {
-                            if user_token.is_some() {
+                        if users.login(token) {
+                            user_token = Some(token);
+                            user_name = match users.get_user(token) {
+                                Some(user) => {
+                                    let name = user.name;
+                                    info!("{} logged in at: {:?}", name, user.pos);
+                                    Some(name)
+                                }
+                                None => None
+                            };
+                        } else {
+                            // WARN! STACK OVERFLOW
+                            sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::Login))).unwrap();
+                        }
+                    },
+                    Move { coord } => {
+                        if let Some(token) = user_token {
+                            users.mod_user(token, UserModInstruction::Move(coord));
+                        } else {
+                            warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or_else(||String::from("")), addr);
+                            sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
+                            break;
+                        }
+                    },
+                    #[allow(unused_variables)]
+                    PlaceStructure { pos, structure } => {
+                        if user_token.is_some() {
 
-                            } else {
-                                warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or_else(||String::from("")), addr);
-                                sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
-                                break;
-                            }
+                        } else {
+                            warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or_else(||String::from("")), addr);
+                            sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
+                            break;
                         }
                     }
                 }
-                Event::ServerToClient(event) => {
-                    warn!("{} sent an invalid event: {:?}", addr, event)
-                }
-                Event::Invalid => {
-                    warn!("{} sent an invalid event", addr)
-                }
             }
-        } else {
-            // client disconnected, preventing empty inv loop, important
-            if let Some(token) = user_token {
-                users.logoff(token);
+            Event::ServerToClient(event) => {
+                warn!("{} sent an invalid event: {:?}", addr, event)
             }
-            break
+            Event::Invalid => {
+                warn!("{} sent an invalid event", addr)
+            }
         }
+    }
+    // log user off when no further event can be fetched(disconnection)
+    if let Some(token) = user_token {
+        users.logoff(token);
     }
 }
