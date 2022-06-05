@@ -41,4 +41,5 @@ pub struct Connection {
 pub struct Chunks {
     pub render_distance: u16,
     pub generations_per_cycle: u16,
+    pub seed: u32,
 }

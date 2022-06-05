@@ -19,5 +19,9 @@ toml = "0.5.8"
 serde = { version = "1.0.136", features = ["derive"] }
 rand = "0.8.5"
 
+# for terrain generation
+noise = "0.7.0"
+splines = "4.1.0"
+
 log = "0.4.16"
 fern = "0.6.0"

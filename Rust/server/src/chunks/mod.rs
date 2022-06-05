@@ -1,11 +1,13 @@
 mod init;
+mod generation;
 
 use crate::channel::*;
 use protocol::{Coord, chunk::Chunk};
 
 #[derive(Debug, Clone)]
 enum Instruction {
-    RequestChunk{coord: Coord, sender: Sender<Chunk>}
+    RequestChunk{coord: Coord, sender: Sender<Chunk>},
+    UnloadChunk{coord: Coord},
 }
 
 // cloneable remote to chunkthread
