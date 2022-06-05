@@ -24,11 +24,11 @@ impl Tcp {
         let reader = reader::Reader::new(r);
         let mut writer = writer::Writer::new(w);
 
-        // INFO: channel has to be bounded, bc otherwise tokio's stack will overflow in debug mode
+        // INFO: channel has to be bounded, otherwise tokio's stack will overflow in debug mode
         let (sender, receiver): (channel::Sender<Event>, channel::Receiver<Event>) = channel::bounded_channel(1024);
         tokio::spawn(async move {
             while let Some(event) = receiver.recv() {
-                writer.send_event(&event).await.unwrap();
+                let _ = writer.send_event(&event).await;
             }
         });
 

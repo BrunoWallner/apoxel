@@ -44,6 +44,19 @@ impl Chunk {
 
         }
     }
+    pub fn is_empty(&self) -> bool {
+        let mut empty = true;
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    if self.data[x][y][z] != Block::None {
+                        empty = false;
+                    }
+                }
+            }
+        }
+        empty
+    }
     // SIDES
     pub fn get_left_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];

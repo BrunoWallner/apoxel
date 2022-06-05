@@ -61,26 +61,27 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
         }
     }
 
-    /* 3d
-    for x in 0..CHUNK_SIZE {
-        for y in 0..CHUNK_SIZE {
-            for z in 0..CHUNK_SIZE {
-                let global_x = (key[0] * CHUNK_SIZE as i64) + x as i64;
-                let global_y = (key[1] * CHUNK_SIZE as i64) + y as i64;
-                let global_z = (key[2] * CHUNK_SIZE as i64) + z as i64;
+    // 3d
+    // for x in 0..CHUNK_SIZE {
+    //     for y in 0..CHUNK_SIZE {
+    //         for z in 0..CHUNK_SIZE {
+    //             let global_x = (key[0] * CHUNK_SIZE as i64) + x as i64;
+    //             let global_y = (key[1] * CHUNK_SIZE as i64) + y as i64;
+    //             let global_z = (key[2] * CHUNK_SIZE as i64) + z as i64;
 
-                let cave = noise.get([
-                    global_x as f64 * 0.022,
-                    global_y as f64 * 0.042,
-                    global_z as f64 * 0.022,
-                ]);
-                if cave > -0.0 {
-                    chunks.place([global_x, global_y, global_z], Block::Dirt);
-                }
-            }
-        }
-    }
-    */
+    //             // let cave = noise.get([
+    //             //     global_x as f64 * 0.022,
+    //             //     global_y as f64 * 0.042,
+    //             //     global_z as f64 * 0.022,
+    //             // ]);
+    //             // if cave > -0.0 {
+    //             //     chunks.place([global_x, global_y, global_z], Block::Dirt);
+    //             // }
+    //             chunks.place([global_x, global_y, global_z], Block::Dirt);
+    //         }
+    //     }
+    // }
+
 
     chunks
 }

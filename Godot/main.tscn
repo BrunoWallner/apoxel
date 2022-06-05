@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://Character/Character.tscn" type="PackedScene" id=1]
 [ext_resource path="res://main.gd" type="Script" id=2]
@@ -32,8 +32,6 @@ glow_bloom = 1.0
 [sub_resource type="BoxShape" id=2]
 extents = Vector3( 1, 0.307304, 0.85674 )
 
-[sub_resource type="BoxShape" id=5]
-
 [node name="WorldEnvironment" type="WorldEnvironment"]
 environment = SubResource( 3 )
 
@@ -41,7 +39,7 @@ environment = SubResource( 3 )
 script = ExtResource( 2 )
 
 [node name="Character" parent="main" instance=ExtResource( 1 )]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.24852, 93.7695, -18.1665 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.24852, 97.5215, -18.1665 )
 SPEED = 4.0
 GRAVITY = 40.0
 JUMP = 20.0
@@ -51,13 +49,7 @@ IN_AIR_MOVEMENT_CAP = 1.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.24852, 85.2395, -17.9957 )
 
 [node name="CollisionShape" type="CollisionShape" parent="main/StaticBody"]
-transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 1.915, 0, 6.384, 0 )
+transform = Transform( 2, 0, 0, 0, 1, 0, 0, 0, 1.915, 0, 10.136, 0 )
 shape = SubResource( 2 )
 
 [node name="BackendHandle" parent="." instance=ExtResource( 3 )]
-
-[node name="Area" type="Area" parent="."]
-
-[node name="CollisionShape" type="CollisionShape" parent="Area"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.28267, 95.0604, -32.8266 )
-shape = SubResource( 5 )

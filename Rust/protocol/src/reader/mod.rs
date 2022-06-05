@@ -40,7 +40,6 @@ impl<T: AsyncRead + Unpin> Reader<T> {
             if completed {
                 break 'get_bytes;
             }
-            break
         }
 
         let event: Event = bincode::deserialize(&buffer[..]).unwrap_or(Event::Invalid);
