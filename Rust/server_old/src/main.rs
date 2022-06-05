@@ -77,9 +77,6 @@ use protocol::event::Event as ProtocolEvent;
 use protocol::event::ClientToServer;
 use events::Tcp;
 
-use protocol::MAX_EVENTS_PER_SECOND;
-use tokio::time::{sleep, Duration};
-
 
 async fn handle_read(
     reader: &mut reader::Reader<OwnedReadHalf>,
@@ -112,7 +109,6 @@ async fn handle_read(
                 }
             }
         }
-        sleep(Duration::from_micros(1000_000 / MAX_EVENTS_PER_SECOND)).await;
     }
 }
 
@@ -139,6 +135,5 @@ async fn handle_write(
                 return Err(io::Error::new(io::ErrorKind::BrokenPipe, "broken pipe"));
             }
         }
-        sleep(Duration::from_micros(1000_000 / MAX_EVENTS_PER_SECOND)).await;
     }
 }

@@ -7,6 +7,7 @@ use protocol::event::{Event, ServerToClient};
 use protocol::error::ClientError;
 use protocol::Token;
 use crate::users::Users;
+use crate::users::UserModInstruction;
 
 use log::*;
 
@@ -21,15 +22,15 @@ pub async fn init(
     let mut reader = rw.0;
     let sender = rw.1;
 
-    let mut user_token: Option<Token> = None; // for loggin off in case of unexpected disonnect
+    let mut user_token: Option<Token> = None; // for loggin off in case of unexpected disonnection
     let mut user_name: Option<String> = None;
 
     loop {
         if let Ok(event) = reader.get_event().await {
-            info!("new event just dropped: {:#?}", event);
             match event {
                 Event::ClientToServer(event) => {
                     use protocol::event::ClientToServer::*;
+                    // WARN! STACK OVERFLOW
                     match event {
                         Register { name } => {
                             if let Some(token) = users.register(name.clone()) {
@@ -42,7 +43,6 @@ pub async fn init(
                         },
                         Login { token } => {
                             user_token = Some(token);
-                            // user_name = 
 
                             if users.login(token) {
                                 user_token = Some(token);
@@ -51,18 +51,20 @@ pub async fn init(
                                     None => None
                                 };
                             } else {
+                                // WARN! STACK OVERFLOW
                                 sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::Login))).unwrap();
                             }
                         },
                         Move { coord } => {
-                            if user_token.is_some() {
-
+                            if let Some(token) = user_token {
+                                users.mod_user(token, UserModInstruction::Move(coord));
                             } else {
                                 warn!("[{}][{}]: auth violation detected!", user_name.unwrap_or(String::from("")), addr);
                                 sender.send(Event::ServerToClient(ServerToClient::Error(ClientError::ConnectionReset))).unwrap();
                                 break;
                             }
                         },
+                        #[allow(unused_variables)]
                         PlaceStructure { pos, structure } => {
                             if user_token.is_some() {
 

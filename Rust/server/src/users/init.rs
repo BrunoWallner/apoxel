@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use protocol::Token;
 use super::User;
 use super::Instruction::*;
+use super::UserModInstruction::*;
 
 // should be selfe contained, and have no access to other handles like chunke or entity...
 // to make sure it does not become spaghetti code
@@ -53,9 +54,11 @@ pub(super) fn init(rx: Receiver<Instruction>) {
                             let _ = user.send(None);
                         }
                     },
-                    ModUser { token, mod_fn } => {
+                    ModUser { token, mod_instruction } => {
                         if let Some(mut user) = users.get_mut(&token) {
-                            mod_fn(&mut user);
+                            match mod_instruction {
+                                Move(coord) => user.pos = coord,
+                            }
                         }
                     }
                 }

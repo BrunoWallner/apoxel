@@ -31,8 +31,7 @@ impl<T: AsyncRead + Unpin> Reader<T> {
     pub async fn get_event(&mut self) -> io::Result<Event> {
         let mut buffer: Vec<u8> = Vec::new();
         'get_bytes: loop {
-            // THIS STACK ALLOCATION TRIGGERS STACK OVERFLOW IN TOKIO RUNTIME IN DEBUG MODE
-            let mut buf: [u8; 255] = [0; 255];
+            let mut buf = [0u8; 255];
             self.read(&mut buf).await?;
             let completed = buf[0] == 1;
 
@@ -41,6 +40,7 @@ impl<T: AsyncRead + Unpin> Reader<T> {
             if completed {
                 break 'get_bytes;
             }
+            break
         }
 
         let event: Event = bincode::deserialize(&buffer[..]).unwrap_or(Event::Invalid);

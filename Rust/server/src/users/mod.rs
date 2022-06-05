@@ -2,22 +2,27 @@ mod init;
 
 use crate::channel::*;
 use protocol::{Token, PlayerCoord};
-use std::sync::Arc;
 
 
 // type UserModFn = Arc<dyn Fn(&mut User) + Send + Sync>;
-type UserModFn = fn(&mut User);
+// type UserModFn = fn(&mut User);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum Instruction {
     Register{name: String, token: Sender<Option<Token>>},
     Login{token: Token, success: Sender<bool>},
     Logoff{token: Token, success: Sender<bool>},
     GetUser{token: Token, user: Sender<Option<User>>},
-    ModUser{token: Token, mod_fn: UserModFn }
+    ModUser{token: Token, mod_instruction: UserModInstruction },
 }
 
-#[derive(Clone)]
+
+#[derive(Debug, Clone)]
+pub enum UserModInstruction {
+    Move(PlayerCoord)
+}
+
+#[derive(Debug, Clone)]
 pub struct User {
     pub name: String,
     pub pos: PlayerCoord,
@@ -55,7 +60,7 @@ impl User {
 }
 
 // clonable 'Remote' to user-handle, which runs on seperate thread
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Users {
     sender: Sender<Instruction>
 }
@@ -99,12 +104,12 @@ impl Users {
         let (tx, rx) = channel();
         self.sender.send(Instruction::GetUser{token, user: tx}).unwrap();
         match rx.recv() {
-            Some(User) => User,
+            Some(user) => user,
             None => None
         }
     }
 
-    pub fn mod_user(&self, token: Token, mod_fn: UserModFn) {
-        self.sender.send(Instruction::ModUser{token, mod_fn}).unwrap();
+    pub fn mod_user(&self, token: Token, mod_instruction: UserModInstruction) {
+        self.sender.send(Instruction::ModUser{token, mod_instruction}).unwrap();
     }
 }
