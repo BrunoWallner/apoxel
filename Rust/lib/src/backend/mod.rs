@@ -19,7 +19,7 @@ use crate::terminator::Terminator;
 
 use gdnative::profiler;
 
-const MAX_CHUNK_TIME: u128 = 2000; // in µs
+const MAX_CHUNK_TIME: u128 = 8000; // in µs
 
 #[derive(NativeClass)]
 #[inherit(Node)]

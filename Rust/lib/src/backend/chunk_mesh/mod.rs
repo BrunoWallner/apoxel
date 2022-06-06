@@ -22,7 +22,7 @@ pub fn init_generation(
     terminator: Terminator,
 ) {
     thread::spawn(move || {
-        let threadpool = threadpool::ThreadPool::new(2);
+        let threadpool = threadpool::ThreadPool::new(8);
         let mut chunk_map: HashMap<Coord, Chunk> = HashMap::default();
         loop {
             if terminator.should_terminate() {

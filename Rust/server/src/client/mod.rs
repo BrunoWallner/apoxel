@@ -1,4 +1,5 @@
-use crate::CONFIG;
+mod chunk_loader;
+
 use crate::channel::Sender;
 use crate::chunks::ChunkHandle;
 use crate::users::UserModInstruction;
@@ -6,7 +7,7 @@ use crate::users::Users;
 use protocol::error::ClientError;
 use protocol::event::{Event, ServerToClient};
 use protocol::reader::Reader;
-use protocol::{chunk::CHUNK_SIZE, PlayerCoord, Token};
+use protocol:: Token;
 use std::net::SocketAddr;
 use tokio::net::tcp::OwnedReadHalf;
 
@@ -27,7 +28,10 @@ pub async fn init(
     let mut user_token: Option<Token> = None; // for loggin off in case of unexpected disonnection
     let mut user_name: Option<String> = None;
 
-    let mut last_chunkload_pos: PlayerCoord = [0.0f64; 3];
+    let mut chunk_loader = chunk_loader::ChunkLoader::new(
+        chunk_handle,
+        sender.clone(),
+    );
 
     while let Ok(event) = reader.get_event().await {
         match event {
@@ -59,11 +63,7 @@ pub async fn init(
                                     let name = user.name;
                                     info!("{} logged in at: {:?}", name, user.pos);
                                     // set chunkload pos to trigger initial load
-                                    last_chunkload_pos = [
-                                        user.pos[0],
-                                        user.pos[1] + CHUNK_SIZE as f64 + 1.0,
-                                        user.pos[2],
-                                    ];
+                                    chunk_loader.set_player_pos(user.pos);
                                     Some(name)
                                 }
                                 None => None,
@@ -95,27 +95,7 @@ pub async fn init(
                         }
 
                         // chunkload
-                        let distance: f64 =
-                            protocol::calculate_distance(&coord, &last_chunkload_pos);
-                        if distance as usize > CHUNK_SIZE / 4 {
-                            last_chunkload_pos = coord;
-
-                            let origin = protocol::chunk::get_chunk_coords(&[
-                                coord[0] as i64,
-                                coord[1] as i64,
-                                coord[2] as i64,
-                            ]).0;
-                            let offset = CONFIG.chunks.render_distance as i64;
-                            for x in origin[0] - offset..=origin[0] + offset {
-                                for y in origin[1] - offset..=origin[1] + offset {
-                                    for z in origin[2] - offset..=origin[2] + offset {
-                                        if let Some(chunk) = chunk_handle.request_chunk([x, y, z]).unwrap() {
-                                            let _ = sender.send(Event::ServerToClient(ServerToClient::ChunkUpdate(chunk)));
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        chunk_loader.update_position(coord);
                     }
                     #[allow(unused_variables)]
                     PlaceStructure { pos, structure } => {
