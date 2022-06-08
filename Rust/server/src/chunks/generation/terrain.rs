@@ -3,7 +3,7 @@ use splines::{Interpolation, Key, Spline};
 
 const ZOOM: f64 = 300.0;
 const OCTAVES: u16 = 10;
-const AMPLITUDE: f64 = 120.0;
+const AMPLITUDE: f64 = 80.0;
 
 pub enum Biome {
     Planes,

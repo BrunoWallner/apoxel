@@ -7,7 +7,7 @@ extents = Vector3( 1, 1, 2 )
 
 [node name="Character" type="KinematicBody"]
 script = ExtResource( 1 )
-GRAVITY = 15.0
+GRAVITY = 30.0
 JUMP = 12.0
 
 [node name="CollisionShape" type="CollisionShape" parent="."]

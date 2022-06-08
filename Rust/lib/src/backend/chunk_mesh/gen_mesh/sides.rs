@@ -19,9 +19,10 @@ impl Side {
     pub fn push(
         &self,
         verts: &mut Vector3Array,
-        uvs: &mut Vector2Array,
         normals: &mut Vector3Array,
+        colors: &mut ColorArray,
         indices: &mut PoolArray<i32>,
+        color: [f32; 4],
     ) {
         verts.append(&PoolArray::from_slice(&self.verts));
         for _ in 0..4 {
@@ -33,7 +34,12 @@ impl Side {
             indices.push(index + offset);
         }
         for _ in 0..4 {
-            uvs.push(Vector2 { x: 0.0, y: 0.0 });
+            colors.push(Color::from_rgba(
+                color[0],
+                color[1],
+                color[2],
+                color[3],
+            ));
         }
     }
 }

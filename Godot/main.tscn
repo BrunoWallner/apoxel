@@ -41,7 +41,7 @@ script = ExtResource( 2 )
 [node name="Character" parent="main" instance=ExtResource( 1 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 8.24852, 97.5215, -18.1665 )
 SPEED = 4.0
-GRAVITY = 40.0
+GRAVITY = 500.0
 JUMP = 20.0
 IN_AIR_MOVEMENT_CAP = 1.0
 

@@ -16,29 +16,36 @@ pub fn gen(
 ) -> (
     Coord,
     Vector3Array,
-    Vector2Array,
     Vector3Array,
+    ColorArray,
     PoolArray<i32>,
 ) {
     let coord = chunk.coord;
 
     let data = chunk.data;
     let mut verts = Vector3Array::new();
-    let mut uvs = Vector2Array::new();
     let mut normals = Vector3Array::new();
+    let mut colors = PoolArray::new();
     let mut indices: PoolArray<i32> = PoolArray::new();
 
     for x in 0..CHUNK_SIZE {
         for y in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 if data[x][y][z].to_category().0 != 0 {
+                    let c = data[x][y][z].to_color();
+                    let color = [
+                        c[0] as f32 / 255.0,
+                        c[1] as f32 / 255.0,
+                        c[2] as f32 / 255.0,
+                        1.0
+                    ];
                     if check_left(x, y, z, &data) {
                         let side = LEFT.clone().apply_vertex_position(Vector3 {
                             x: x as f32,
                             y: y as f32,
                             z: z as f32,
                         });
-                        side.push(&mut verts, &mut uvs, &mut normals, &mut indices);
+                        side.push(&mut verts, &mut normals, &mut colors, &mut indices, color);
                     }
                     if check_right(x, y, z, &data) {
                         let side = RIGHT.clone().apply_vertex_position(Vector3 {
@@ -46,7 +53,7 @@ pub fn gen(
                             y: y as f32,
                             z: z as f32,
                         });
-                        side.push(&mut verts, &mut uvs, &mut normals, &mut indices);
+                        side.push(&mut verts, &mut normals, &mut colors, &mut indices, color);
                     }
                     if check_front(x, y, z, &data) {
                         let side = FRONT.clone().apply_vertex_position(Vector3 {
@@ -54,7 +61,7 @@ pub fn gen(
                             y: y as f32,
                             z: z as f32,
                         });
-                        side.push(&mut verts, &mut uvs, &mut normals, &mut indices);
+                        side.push(&mut verts, &mut normals, &mut colors, &mut indices, color);
                     }
                     if check_back(x, y, z, &data) {
                         let side = BACK.clone().apply_vertex_position(Vector3 {
@@ -62,7 +69,7 @@ pub fn gen(
                             y: y as f32,
                             z: z as f32,
                         });
-                        side.push(&mut verts, &mut uvs, &mut normals, &mut indices);
+                        side.push(&mut verts, &mut normals, &mut colors, &mut indices, color);
                     }
                     if check_top(x, y, z, &data) {
                         let side = TOP.clone().apply_vertex_position(Vector3 {
@@ -70,7 +77,7 @@ pub fn gen(
                             y: y as f32,
                             z: z as f32,
                         });
-                        side.push(&mut verts, &mut uvs, &mut normals, &mut indices);
+                        side.push(&mut verts, &mut normals, &mut colors, &mut indices, color);
                     }
                     if check_bottom(x, y, z, &data) {
                         let side = BOTTOM.clone().apply_vertex_position(Vector3 {
@@ -78,7 +85,7 @@ pub fn gen(
                             y: y as f32,
                             z: z as f32,
                         });
-                        side.push(&mut verts, &mut uvs, &mut normals, &mut indices);
+                        side.push(&mut verts, &mut normals, &mut colors, &mut indices, color);
                     }
                 }
             }
@@ -89,10 +96,10 @@ pub fn gen(
         data,
         sides,
         &mut verts,
-        &mut uvs,
+        &mut colors,
         &mut normals,
         &mut indices,
     );
 
-    (coord, verts, uvs, normals, indices)
+    (coord, verts, normals, colors, indices)
 }
