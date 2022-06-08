@@ -6,9 +6,8 @@ use std::fs;
 
 
 lazy_static! {
-    pub static ref TREE: Structure = {
-        load_struct("tree.vox")
-    };
+    pub static ref TREE: Structure = load_struct("tree.vox");
+    pub static ref STONE: Structure = load_struct("stone.vox");
 }
 
 fn load_struct(path: &str) -> Structure {

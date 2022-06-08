@@ -23,6 +23,7 @@ pub fn init_generation(
 ) {
     thread::spawn(move || {
         let mut chunk_map: HashMap<Coord, Chunk> = HashMap::default();
+        let threadpool = threadpool::ThreadPool::new(4);
         loop {
             if terminator.should_terminate() {
                 break;
@@ -46,9 +47,12 @@ pub fn init_generation(
                 // bottom side
                 sides[5] = chunk_map.get(&[coord[0], coord[1] - 1, coord[2]]).map(|c| c.get_top_side());
 
-                let mesh = gen_mesh::gen(chunk, sides);
-                let chunk = gen_chunk::gen(mesh); // WARN! 120ms
-                let _ = chunk_mesh_sender.send(chunk);
+                let chunk_mesh_sender = chunk_mesh_sender.clone();
+                threadpool.execute(move || {
+                    let mesh = gen_mesh::gen(chunk, sides);
+                    let chunk = gen_chunk::gen(mesh); // WARN! 120ms
+                    let _ = chunk_mesh_sender.send(chunk);
+                });
             }
         }
     });

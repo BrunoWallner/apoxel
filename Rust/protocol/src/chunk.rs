@@ -212,7 +212,7 @@ impl SuperChunk {
     }
 }
 
-const BLOCK_COLORS: [[u8; 3]; 12] = [
+const BLOCK_COLORS: [[u8; 3]; 13] = [
     [0, 0, 0],
     [0, 0, 0],
     // terrain
@@ -220,6 +220,7 @@ const BLOCK_COLORS: [[u8; 3]; 12] = [
     [50, 30, 30],
     [100, 100, 100],
     [70, 70, 70],
+    [190, 160, 60],
     // woods
     [75, 35, 35],
     // colors
@@ -245,6 +246,8 @@ pub enum Block {
 
     Stone,
     DarkStone,
+
+    Sand,
 
     // woods
     OakWood,
@@ -273,15 +276,17 @@ impl Block {
             Block::Stone => (2, 0),
             Block::DarkStone => (2, 1),
 
-            Block::OakWood => (3, 0),
+            Block::Sand => (3, 2),
 
-            Block::Red => (4, 0),
-            Block::Green => (4, 1),
-            Block::Blue => (4, 2),
+            Block::OakWood => (4, 0),
 
-            Block::Leave => (5, 0),
+            Block::Red => (5, 0),
+            Block::Green => (5, 1),
+            Block::Blue => (5, 2),
 
-            Block::Water => (6, 0),
+            Block::Leave => (6, 0),
+
+            Block::Water => (7, 0),
         }
     }
 
@@ -294,15 +299,11 @@ impl Block {
     }
 
     pub fn from_color(color: [u8; 3]) -> Self {
-        // WARN! MUST BE UPDATED WITH EVER BLOCK ADDITION/DELETION!!!
+        // WARN! MUST BE UPDATED
         let first = Block::None as u16;
         let last = Block::Water as u16;
 
-        if let Some(position) = BLOCK_COLORS
-            .iter()
-            // a value does not get checked
-            .position(|x| x == &color)
-        {
+        if let Some(position) = BLOCK_COLORS.iter().position(|x| x == &color) {
             match position as u16 {
                 // Block::Water as last Block in Block enum
                 i if i >= first && i <= last =>

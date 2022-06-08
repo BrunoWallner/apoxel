@@ -128,7 +128,6 @@ pub async fn init(
 
     // USER DISCONNECTION HANDLING
     if let Some(token) = user_token {
-        info!("disconnect");
         users.logoff(token);
     }
 }
