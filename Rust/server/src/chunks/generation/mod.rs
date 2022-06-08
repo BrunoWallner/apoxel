@@ -2,8 +2,6 @@ mod noise;
 mod terrain;
 mod structures;
 
-use protocol::chunk::Structure;
-
 use protocol::chunk::Block;
 use protocol::chunk::CHUNK_SIZE;
 use protocol::chunk::{Chunk, SuperChunk};
@@ -102,24 +100,4 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
 
 
     chunks
-}
-
-pub fn generate_flower() -> Structure {
-    let mut grass = Structure::new([3, 3, 3]);
-
-    let red = Block::Red;
-    let green = Block::Green;
-    let blue = Block::Blue;
-
-    grass.place([1, 0, 1], green);
-    grass.place([1, 1, 1], green);
-
-    grass.place([1, 2, 1], red);
-
-    grass.place([2, 2, 1], blue);
-    grass.place([0, 2, 1], blue);
-    grass.place([1, 2, 2], blue);
-    grass.place([1, 2, 0], blue);
-
-    grass
 }

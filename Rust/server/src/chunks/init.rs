@@ -40,7 +40,7 @@ pub(super) fn init(
                             }
                             // push chunk to chunks and send it
                             if !main_chunk.is_empty() {
-                                chunks.insert(mc_coord, StoredChunk::new(main_chunk.clone()));
+                                chunks.insert(mc_coord, StoredChunk::new(main_chunk));
                                 chunk_buffer.push(main_chunk);
                             }
         
