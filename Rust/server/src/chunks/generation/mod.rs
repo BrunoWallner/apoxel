@@ -1,5 +1,6 @@
 mod noise;
 mod terrain;
+mod structures;
 
 use protocol::chunk::Structure;
 
@@ -11,7 +12,6 @@ const WATER_LEVEL: i64 = 30;
 
 pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
     let key = chunk.coord;
-    let flower_struct = generate_flower();
     let terrain = terrain::TerrainGen::new(seed);
 
     let noise = noise::Noise::new(5874927);
@@ -42,12 +42,12 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
                 chunks.place([global_x, height, global_z], Block::Grass)
             }
             
-            // flowers
-            let flower = noise.get([global_x as f64, global_z as f64], 0.1, 1) > 0.5;
-            if flower && height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
+            // trees
+            let tree = noise.get([global_x as f64, global_z as f64], 0.1, 1) > 0.5;
+            if tree && height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 && height >= key[1] * CHUNK_SIZE as i64 {
                 // let mirror_x = noise.get([global_x as f64 * 1.13, global_z as f64 * 1.13]) > 0.4325;
                 // let mirror_z = noise.get([global_x as f64 * 1.13, global_z as f64 * 1.13]) > 0.4750;
-                chunks.place_structure(&flower_struct, [global_x, height, global_z], [false, false, false]);
+                chunks.place_structure(&structures::TREE, [global_x, height, global_z], [false, false, false]);
             }
 
             // water

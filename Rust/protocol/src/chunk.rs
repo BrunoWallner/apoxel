@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use super::Coord;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub const CHUNK_SIZE: usize = 32;
@@ -9,12 +9,12 @@ pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
     let chunk = [
         (coord[0] as f64 / CHUNK_SIZE as f64).floor() as i64,
         (coord[1] as f64 / CHUNK_SIZE as f64).floor() as i64,
-        (coord[2] as f64 / CHUNK_SIZE as f64).floor() as i64
+        (coord[2] as f64 / CHUNK_SIZE as f64).floor() as i64,
     ];
     let index = [
         (coord[0] - (chunk[0] * CHUNK_SIZE as i64)).abs() as usize,
         (coord[1] - (chunk[1] * CHUNK_SIZE as i64)).abs() as usize,
-        (coord[2] - (chunk[2] * CHUNK_SIZE as i64)).abs() as usize
+        (coord[2] - (chunk[2] * CHUNK_SIZE as i64)).abs() as usize,
     ];
 
     (chunk, index)
@@ -41,7 +41,6 @@ impl Chunk {
                     }
                 }
             }
-
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -118,7 +117,8 @@ impl Chunk {
 pub struct SuperChunk {
     pub chunks: HashMap<[i64; 3], Chunk>,
     pub main_chunk: Coord,
-} impl SuperChunk {
+}
+impl SuperChunk {
     pub fn new(main_chunk: Chunk) -> Self {
         let mut chunks = HashMap::default();
         chunks.insert(main_chunk.coord, main_chunk);
@@ -134,17 +134,17 @@ pub struct SuperChunk {
     }
     pub fn get(&self, coord: [i64; 3]) -> Option<Block> {
         let (chunk, index) = get_chunk_coords(&coord);
-    
+
         if let Some(c) = self.chunks.get(&chunk) {
-            return Some(c.data[index[0]][index[1]][index[2]])
+            return Some(c.data[index[0]][index[1]][index[2]]);
         } else {
-            return None
-        } 
+            return None;
+        }
     }
     pub fn place(&mut self, coord: [i64; 3], block: Block) {
         if block != Block::None {
             let (chunk, index) = get_chunk_coords(&coord);
-    
+
             if let Some(c) = self.chunks.get_mut(&chunk) {
                 c.data[index[0]][index[1]][index[2]] = block;
             } else {
@@ -166,17 +166,22 @@ pub struct SuperChunk {
                     if block != Block::None {
                         let mut x = x;
                         let mut y = y;
-                        let mut z = z; 
+                        let mut z = z;
                         // mirroring
-                        if mirror[0] {x = structure.size[0] - x}
-                        if mirror[1] {y = structure.size[1] - y}
-                        if mirror[2] {z = structure.size[2] - z}
+                        if mirror[0] {
+                            x = structure.size[0] - x
+                        }
+                        if mirror[1] {
+                            y = structure.size[1] - y
+                        }
+                        if mirror[2] {
+                            z = structure.size[2] - z
+                        }
 
                         let x = coord[0] - x_offset as i64 + x as i64;
                         let y = coord[1] + y as i64;
                         let z = coord[2] - z_offset as i64 + z as i64;
 
-    
                         self.place([x, y, z], block);
                     }
                 }
@@ -198,7 +203,7 @@ pub struct SuperChunk {
                         let x = coord[0] - x_offset as i64 + x as i64;
                         let y = coord[1] + y as i64;
                         let z = coord[2] - z_offset as i64 + z as i64;
-    
+
                         self.place([x, y, z], block);
                     }
                 }
@@ -207,9 +212,29 @@ pub struct SuperChunk {
     }
 }
 
+const BLOCK_COLORS: [[u8; 3]; 12] = [
+    [0, 0, 0],
+    [0, 0, 0],
+    // terrain
+    [10, 200, 30],
+    [50, 30, 30],
+    [100, 100, 100],
+    [70, 70, 70],
+    // woods
+    [75, 35, 35],
+    // colors
+    [255, 0, 0],
+    [0, 255, 0],
+    [0, 0, 255],
+    // foliage
+    [40, 110, 40],
+    // liquids
+    [0, 100, 200],
+];
+
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum Block {
     None,
     Air,
@@ -220,6 +245,9 @@ pub enum Block {
 
     Stone,
     DarkStone,
+
+    // woods
+    OakWood,
 
     // colors
     Red,
@@ -232,6 +260,7 @@ pub enum Block {
     // liquids
     Water,
 }
+
 impl Block {
     pub fn to_category(&self) -> (u8, u8) {
         match self {
@@ -244,13 +273,15 @@ impl Block {
             Block::Stone => (2, 0),
             Block::DarkStone => (2, 1),
 
-            Block::Red => (3, 0),
-            Block::Green => (3, 1),
-            Block::Blue => (3, 2),
+            Block::OakWood => (3, 0),
 
-            Block::Leave => (4, 0),
+            Block::Red => (4, 0),
+            Block::Green => (4, 1),
+            Block::Blue => (4, 2),
 
-            Block::Water => (5, 0),
+            Block::Leave => (5, 0),
+
+            Block::Water => (6, 0),
         }
     }
 
@@ -260,6 +291,33 @@ impl Block {
             Block::Air => true,
             _ => false,
         }
+    }
+
+    pub fn from_color(color: [u8; 3]) -> Self {
+        // WARN! MUST BE UPDATED WITH EVER BLOCK ADDITION/DELETION!!!
+        let first = Block::None as u16;
+        let last = Block::Water as u16;
+
+        if let Some(position) = BLOCK_COLORS
+            .iter()
+            // a value does not get checked
+            .position(|x| x == &color)
+        {
+            match position as u16 {
+                // Block::Water as last Block in Block enum
+                i if i >= first && i <= last =>
+                // WARN! IT IS VERY UNSAFE, first and last MUST BE CORRECT!
+                unsafe { std::mem::transmute(i) },
+                _ => Block::None,
+            }
+        } else {
+            Block::None
+        }
+    }
+
+    pub fn to_color(&self) -> [u8; 3] {
+        let index = *self as u8;
+        BLOCK_COLORS[index as usize]
     }
 }
 

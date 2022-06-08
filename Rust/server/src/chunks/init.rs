@@ -22,6 +22,9 @@ pub(super) fn init(
                     for coord in coords.iter() {
                         if let Some(chunk) = chunks.get_mut(coord) {
                             chunk.mark_needed_by(token);
+                            if let Some(left) = leftover.get(&chunk.chunk.coord) {
+                                chunk.chunk.merge(left);
+                            }
                             chunk_buffer.push(chunk.chunk);
                         } else {
                             // WARN! this else might be wrong
