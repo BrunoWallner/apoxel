@@ -82,6 +82,10 @@ func login():
 		var string = '{"Login":{"token":' + token_string + '}}';
 		client.send(string);
 		self.logged_in = true;
+		
+func disconnect_from_server():
+	if !token.empty():
+		client.send('"Disconnect"');
 	
 
 func move(pos: Vector3):

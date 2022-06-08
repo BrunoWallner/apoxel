@@ -7,7 +7,7 @@ reloadable=true
 
 [entry]
 
-X11.64="res://Bin/librust.so"
+X11.64="res://Bin/lib.so"
 
 [dependencies]
 

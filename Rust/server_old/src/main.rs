@@ -99,6 +99,7 @@ async fn handle_read(
                 ClientToServer::PlaceStructure{pos, structure} => {
                     chunk_handle.place_structure(pos, structure).await;
                 }
+                ClientToServer::Disconnect => break
             }
             _ => {
                 let user = client_handle.get_player().await;
@@ -110,6 +111,7 @@ async fn handle_read(
             }
         }
     }
+    Ok(())
 }
 
 async fn handle_write(

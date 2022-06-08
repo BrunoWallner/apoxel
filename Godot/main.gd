@@ -8,5 +8,7 @@ func _ready():
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
 		print("exiting");
+		backend.disconnect_from_server();
 		backend.terminate(); # very important
 		self.get_tree().quit();
+

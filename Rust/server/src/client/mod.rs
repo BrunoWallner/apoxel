@@ -80,6 +80,9 @@ pub async fn init(
                     Move { coord } => {
                         if let Some(token) = user_token {
                             users.mod_user(token, UserModInstruction::Move(coord));
+
+                            // chunk request
+                            chunk_loader.update_position(coord, token);
                         } else {
                             warn!(
                                 "[{}][{}]: auth violation detected!",
@@ -93,9 +96,6 @@ pub async fn init(
                                 .unwrap();
                             break;
                         }
-
-                        // chunkload
-                        chunk_loader.update_position(coord);
                     }
                     #[allow(unused_variables)]
                     PlaceStructure { pos, structure } => {
@@ -114,6 +114,7 @@ pub async fn init(
                             break;
                         }
                     }
+                    Disconnect => break,
                 }
             }
             Event::ServerToClient(event) => {
@@ -124,8 +125,10 @@ pub async fn init(
             }
         }
     }
-    // log user off when no further event can be fetched(disconnection)
+
+    // USER DISCONNECTION HANDLING
     if let Some(token) = user_token {
+        info!("disconnect");
         users.logoff(token);
     }
 }

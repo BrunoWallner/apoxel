@@ -10,6 +10,7 @@ pub enum ClientToServer {
     Login{token: Token},
     Move{coord: PlayerCoord},
     PlaceStructure{pos: Coord, structure: Structure},
+    Disconnect,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

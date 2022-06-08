@@ -22,8 +22,8 @@ pub fn init_generation(
     terminator: Terminator,
 ) {
     thread::spawn(move || {
-        let threadpool = threadpool::ThreadPool::new(8);
         let mut chunk_map: HashMap<Coord, Chunk> = HashMap::default();
+        let pool = threadpool::ThreadPool::new(8);
         loop {
             if terminator.should_terminate() {
                 break;
@@ -47,11 +47,11 @@ pub fn init_generation(
                 // bottom side
                 sides[5] = chunk_map.get(&[coord[0], coord[1] - 1, coord[2]]).map(|c| c.get_top_side());
 
-                let sender = chunk_mesh_sender.clone();
-                threadpool.execute(move || {
+                let chunk_mesh_sender_clone = chunk_mesh_sender.clone();
+                pool.execute(move || {
                     let mesh = gen_mesh::gen(chunk, sides);
-                    let chunk = gen_chunk::gen(mesh); // 120ms
-                    let _ = sender.send(chunk);
+                    let chunk = gen_chunk::gen(mesh); // WARN! 120ms
+                    let _ = chunk_mesh_sender_clone.send(chunk);
                 });
             }
         }

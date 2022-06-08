@@ -32,8 +32,12 @@ pub(super) fn init(rx: Receiver<Instruction>) {
                 },
                 Login { token, success } => {
                     if let Some(mut user) = users.get_mut(&token) {
-                        user.online = true;
-                        let _ = success.send(true);
+                        if !user.online {
+                            user.online = true;
+                            let _ = success.send(true);
+                        } else {
+                            let _ = success.send(false); 
+                        }
                     } else {
                         let _ = success.send(false);
                     }
