@@ -1,13 +1,14 @@
 mod chunk_loader;
 
-use crate::channel::Sender;
+use crate::channel::*;
 use crate::chunks::ChunkHandle;
 use crate::users::UserModInstruction;
 use crate::users::Users;
 use protocol::error::ClientError;
 use protocol::event::{Event, ServerToClient};
 use protocol::reader::Reader;
-use protocol:: Token;
+use protocol::Token;
+use protocol::Coord;
 use std::net::SocketAddr;
 use tokio::net::tcp::OwnedReadHalf;
 
@@ -21,6 +22,7 @@ pub async fn init(
     addr: SocketAddr,
     users: Users,
     chunk_handle: ChunkHandle,
+    chunk_update_receiver: Receiver<Coord>,
 ) {
     let mut reader = rw.0;
     let sender = rw.1;
@@ -31,6 +33,7 @@ pub async fn init(
     let mut chunk_loader = chunk_loader::ChunkLoader::new(
         chunk_handle,
         sender.clone(),
+        chunk_update_receiver,
     );
 
     while let Ok(event) = reader.get_event().await {

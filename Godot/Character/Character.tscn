@@ -12,9 +12,12 @@ JUMP = 12.0
 [node name="CollisionShape" type="CollisionShape" parent="."]
 pause_mode = 1
 process_priority = 10
-transform = Transform( -1.09278e-07, 2.5, -1.31134e-07, 0, -1.09278e-07, -3, -2.5, -1.09278e-07, 5.73206e-15, 0, 0, 0 )
+transform = Transform( -1.31134e-07, 3, -2.18557e-07, 0, -1.31134e-07, -5, -3, -1.31134e-07, 9.55343e-15, 0, 0, 0 )
 shape = SubResource( 1 )
 
 [node name="Camera" type="Camera" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6, 0 )
+current = true
+fov = 90.0
+near = 0.4
 far = 2500.0

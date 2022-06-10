@@ -26,7 +26,7 @@ impl TerrainGen {
         // range 0..1
         let mountain = (self
             .noise
-            .get([coord[0] as f64, coord[1] as f64], ZOOM, OCTAVES)
+            .get([coord[0] as f64, coord[1] as f64], ZOOM, OCTAVES, 0.0)
             + 1.0)
             / 2.0;
 

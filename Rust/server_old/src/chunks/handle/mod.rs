@@ -238,7 +238,7 @@ async fn init(
                 Instruction::PlaceStructure { coord, structure } => {
                     if let Some(chunk) = chunks.get(&coord) {
                         let mut super_chunk = SuperChunk::new(*chunk); // BAD
-                        super_chunk.place_structure(&structure, coord, [false, false, false]);
+                        super_chunk.place_structure(&structure, coord);
                         apply_superchunk(&mut chunks, super_chunk.clone());
                     }
                 }

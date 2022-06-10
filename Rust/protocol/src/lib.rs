@@ -28,3 +28,19 @@ pub fn calculate_distance(p1: &PlayerCoord, p2: &PlayerCoord) -> f64 {
 
     distance
 }
+
+pub fn coord_to_player_coord(coord: Coord) -> PlayerCoord {
+    [
+        coord[0] as f64,
+        coord[1] as f64,
+        coord[2] as f64,
+    ]
+}
+
+pub fn player_coord_to_coord(player_coord: PlayerCoord) -> Coord {
+    [
+        player_coord[0] as i64,
+        player_coord[1] as i64,
+        player_coord[2] as i64,
+    ]
+}

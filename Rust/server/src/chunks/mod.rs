@@ -2,8 +2,9 @@ mod init;
 mod generation;
 
 use crate::channel::*;
-use protocol::{Token, Coord, chunk::Chunk};
+use protocol::{Token, Coord, chunk::Chunk, chunk::SuperChunk};
 use std::collections::HashSet;
+use crate::users::Users;
 
 #[derive(Debug, Clone)]
 struct StoredChunk {
@@ -30,7 +31,7 @@ impl StoredChunk {
 
 #[derive(Debug, Clone)]
 enum Instruction {
-    RequestChunks{coords: Vec<Coord>, sender: Sender<Vec<Chunk>>, token: Token},
+    RequestChunks{coords: Vec<Coord>, token: Token, sender: Sender<Vec<Chunk>>},
     RequestUnloadChunk{coords: Vec<Coord>, token: Token},
 }
 
@@ -40,9 +41,9 @@ pub struct ChunkHandle {
     sender: Sender<Instruction>
 }
 impl ChunkHandle {
-    pub fn init() -> Self {
+    pub fn init(chunk_update_sender: Sender<Coord>) -> Self {
         let (tx, rx) = channel();
-        init::init(rx);
+        init::init(rx, chunk_update_sender);
         Self {sender: tx}
     }
 

@@ -1,7 +1,7 @@
 // purposefully monolithic because of performance
 
 pub mod bridge;
-mod chunk_mesh;
+mod chunk_handle;
 pub mod client;
 
 use bridge::Bridge;
@@ -27,8 +27,8 @@ pub struct Backend {
     bridge: Option<Bridge>,
     runtime: Runtime,
 
+    chunk_handle: Option<chunk_handle::ChunkHandle>,
     event_receiver: Option<channel::Receiver<(String, Vec<Variant>)>>,
-    chunk_mesh_receiver: Option<channel::Receiver<Option<Ref<Spatial>>>>,
 
     terminator: Terminator,
 }
@@ -46,8 +46,8 @@ impl Backend {
             bridge: None,
             runtime,
 
+            chunk_handle: None,
             event_receiver: None,
-            chunk_mesh_receiver: None,
 
             terminator: Terminator::new(),
         }
@@ -63,25 +63,20 @@ impl Backend {
         if let Some(bridge) = client::init(host, &self.runtime, self.terminator.clone()) {
             self.bridge = Some(bridge.clone());
 
-            // WARN: might lead to missing chunks if bounded
-            let (chunk_sender, chunk_receiver) = channel::bounded(100);
-            let (chunk_thread_sender, chunk_thread_receiver) = channel::bounded(100);
             let (event_sender, event_receiver) = channel::bounded(100);
 
-            self.event_receiver = Some(event_receiver);
-            self.chunk_mesh_receiver = Some(chunk_receiver);
+            let chunk_handle = chunk_handle::ChunkHandle::init(self.terminator.clone());
+            let chunk_sender = chunk_handle.chunk_sender.clone();
+            self.chunk_handle = Some(chunk_handle);
 
-            chunk_mesh::init_generation(
-                chunk_thread_receiver,
-                chunk_sender,
-                self.terminator.clone(),
-            );
             init_event_handle(
                 bridge,
                 event_sender,
-                chunk_thread_sender,
+                chunk_sender,
                 self.terminator.clone(),
             );
+
+            self.event_receiver = Some(event_receiver);
 
             true
         } else {
@@ -133,10 +128,10 @@ impl Backend {
     }
 
     fn spawn_chunks(&self, owner: &Node) {
-        if let Some(chunk_mesh_receiver) = &self.chunk_mesh_receiver {
+        if let Some(chunk_handle) = &self.chunk_handle {
             let start = Instant::now();
             'spawning: loop {
-                if let Ok(chunk) = chunk_mesh_receiver.try_recv() {
+                if let Ok(chunk) = chunk_handle.chunk_mesh_receiver.try_recv() {
                     if let Some(chunk) = chunk {
                         owner.add_child(chunk, false);
                     }
