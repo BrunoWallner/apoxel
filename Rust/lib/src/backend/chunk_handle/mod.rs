@@ -41,13 +41,17 @@ fn init_generation(
 ) {
     thread::spawn(move || {
         let mut chunk_map: HashMap<Coord, Chunk> = HashMap::default();
-        let threadpool = threadpool::ThreadPool::new(4);
+        let threadpool = threadpool::ThreadPool::new(16);
         loop {
             if terminator.should_terminate() {
                 break;
             }
             if let Ok(chunk) = chunk_receiver.recv() {
-                chunk_map.insert(chunk.coord, chunk);
+                if let Some(c) = chunk_map.get_mut(&chunk.coord) {
+                    *c = chunk; 
+                } else {
+                    chunk_map.insert(chunk.coord, chunk);
+                }
                 // get sides of surrounding chunks
                 // under 900 µs
                 let mut sides: [Option<[[Block; CHUNK_SIZE]; CHUNK_SIZE]>; 6] = [None; 6];

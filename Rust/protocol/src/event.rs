@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 use super::chunk::Structure;
 use super::chunk::Chunk;
 
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ClientToServer {
     Register{name: String},
@@ -25,4 +26,11 @@ pub enum Event {
     Invalid,
     ClientToServer(ClientToServer),
     ServerToClient(ServerToClient),
+}
+
+pub mod prelude {
+    pub use super::ClientToServer::{self, *};
+    pub use super::ServerToClient::{self, *};
+    pub use super::Event::*;
+    pub use crate::error::ClientError;
 }

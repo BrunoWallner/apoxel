@@ -24,35 +24,42 @@ pub(super) fn init(
                     for coord in coords.iter() {
                         if let Some(chunk) = chunks.get_mut(coord) {
                             chunk.mark_needed_by(token);
-                            chunk_buffer.push(chunk.chunk);
+                            chunk_buffer.push(chunk.chunk.clone());
                         } else {
-                            let super_chunk = generate(Chunk::new(*coord), CONFIG.chunks.seed);
-        
-                            // handle leftovers of generated chunk
-                            for (coord, left) in super_chunk.chunks.iter() {
-                                let final_left: Chunk;
-                                if let Some(l) = leftover.get_mut(coord) {
-                                    l.merge(left);
-                                    final_left = *l;
-                                } else {
-                                    leftover.insert(*coord, *left);
-                                    final_left = *left;
-                                }
-        
-                                // apply final_left to chunk, when found
-                                if let Some(stored_chunk) = chunks.get_mut(coord) {
-                                    stored_chunk.chunk.merge(&final_left);
-                                }
+                            // generate new
+                            let mut super_chunk = generate(Chunk::new(*coord), CONFIG.chunks.seed);
+                            
+                            // extract main chunk and merge with leftover
+                            let mut main_chunk = super_chunk.remove_main_chunk();
+                            if let Some(left) = leftover.get(coord /* coord of main_chunk */) {
+                                // log::info!("merged");
+                                main_chunk.merge(left);
                             }
-
-                            // extract main chunk
-                            let main_chunk  = *leftover.get(coord).unwrap();
-                            // push chunk to chunks
                             if !main_chunk.is_empty() {
-                                let mut stored_chunk = StoredChunk::new(main_chunk);
+                                // main_chunk is not allowed to be modified from now on
+                                chunk_buffer.push(main_chunk.clone());
+                                let mut stored_chunk = StoredChunk::new(main_chunk.clone());
                                 stored_chunk.mark_needed_by(token);
                                 chunks.insert(*coord, stored_chunk);
-                                chunk_buffer.push(main_chunk);
+                            }
+
+                            // handle leftovers of generated chunk
+                            for (coord, left) in super_chunk.chunks.iter() {
+                                // apply final_left to chunk, when found
+                                if let Some(stored_chunk) = chunks.get_mut(coord) {
+                                    let mut left = left.clone();
+                                    if let Some(l) = leftover.remove(coord) {
+                                       left.merge(&l);
+                                    }
+                                    stored_chunk.chunk.merge(&left);
+                                    let _ = chunk_update_sender.send(*coord);
+                                } else {
+                                    if let Some(l) = leftover.get_mut(coord) {
+                                        l.merge(left);
+                                    } else {
+                                        leftover.insert(*coord, left.clone());
+                                    }
+                                }
                             }
                         }
                     }

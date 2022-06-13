@@ -28,10 +28,6 @@ func _ready():
 		self.register(login_name);
 	
 func _process(_dt: float):
-	if Input.is_action_just_pressed("ui_cancel"):
-		#self.terminate();
-		pass
-		
 	# fetching events	
 	var event = client.fetch_event();
 	if event:

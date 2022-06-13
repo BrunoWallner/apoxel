@@ -44,13 +44,13 @@ impl ChunkLoader {
 
         // fetch and process chunk updates
         let mut chunk_coords: Vec<Coord> = Vec::new();
-        while let Some(coord) = self.chunk_update_receiver.try_recv() {
-            if protocol::calculate_chunk_distance(&origin, &coord)
-                < CONFIG.chunks.render_distance.into()
-            {
-                chunk_coords.push(coord);
-            }
-        }
+        // while let Some(coord) = self.chunk_update_receiver.try_recv() {
+        //     if protocol::calculate_chunk_distance(&origin, &coord)
+        //         < CONFIG.chunks.render_distance.into()
+        //     {
+        //         chunk_coords.push(coord);
+        //     }
+        // }
 
         let distance: f64 = protocol::calculate_distance(&pos, &self.last_load_pos);
         if distance as usize > CHUNK_SIZE {
@@ -61,10 +61,12 @@ impl ChunkLoader {
                 for y in origin[1] - offset..=origin[1] + offset {
                     for z in origin[2] - offset..=origin[2] + offset {
                         let coord = [x, y, z];
-                        if !self.chunks.contains(&coord) {
-                            chunk_coords.push([x, y, z]);
+                        if protocol::calculate_chunk_distance(&origin, &coord) < offset
+                            && !self.chunks.contains(&coord) 
+                        {
                             self.chunks.insert(coord);
-                        }
+                            chunk_coords.push(coord);
+                        } 
                     }
                 }
             }
@@ -77,6 +79,7 @@ impl ChunkLoader {
                 .chunk_handle
                 .request_chunks(chunk_coords.to_vec(), token)
             {
+                // every chunk that is requested and not empty ends up here
                 for chunk in chunks {
                     let _ = self
                         .tcp_sender
@@ -87,6 +90,7 @@ impl ChunkLoader {
     }
 }
 
+// for clear_duplicates()
 trait Dedup<T: PartialEq + Clone> {
     fn clear_duplicates(&mut self);
 }

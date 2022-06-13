@@ -1,11 +1,12 @@
 use super::Coord;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub const CHUNK_SIZE: usize = 32;
 pub type ChunkData = [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
 
 pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
+    // Must work
     let chunk = [
         (coord[0] as f64 / CHUNK_SIZE as f64).floor() as i64,
         (coord[1] as f64 / CHUNK_SIZE as f64).floor() as i64,
@@ -20,15 +21,15 @@ pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
     (chunk, index)
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Chunk {
-    pub data: ChunkData,
+    pub data: Box<ChunkData>,
     pub coord: Coord,
 }
 impl Chunk {
     pub fn new(coord: Coord) -> Self {
         Self {
-            data: [[[Block::None; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
+            data: Box::new([[[Block::None; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]),
             coord,
         }
     }
@@ -115,13 +116,13 @@ impl Chunk {
 
 #[derive(Clone, Debug)]
 pub struct SuperChunk {
-    pub chunks: HashMap<[i64; 3], Chunk>,
+    pub chunks: BTreeMap<[i64; 3], Chunk>,
     pub main_chunk: Coord,
 }
 impl SuperChunk {
     pub fn new(main_chunk: Chunk) -> Self {
-        let mut chunks = HashMap::default();
-        chunks.insert(main_chunk.coord, main_chunk);
+        let mut chunks = BTreeMap::default();
+        chunks.insert(main_chunk.coord, main_chunk.clone());
 
         Self {
             chunks,
@@ -130,7 +131,11 @@ impl SuperChunk {
     }
     pub fn get_main_chunk(&self) -> Chunk {
         // guaranteed to not panic if initialized with Self::new()
-        *self.chunks.get(&self.main_chunk).unwrap()
+        self.chunks.get(&self.main_chunk).unwrap().clone()
+    }
+    pub fn remove_main_chunk(&mut self) -> Chunk {
+        // guaranteed to not panic if initialized with Self::new()
+        self.chunks.remove(&self.main_chunk).unwrap()
     }
     pub fn get(&self, coord: [i64; 3]) -> Option<Block> {
         let (chunk, index) = get_chunk_coords(&coord);
@@ -260,7 +265,7 @@ pub enum Block {
     Blue,
 
     // foliage
-    Leave,
+    OakLeave,
 
     // liquids
     Water,
@@ -287,7 +292,7 @@ impl Block {
             Block::Green => (5, 1),
             Block::Blue => (5, 2),
 
-            Block::Leave => (6, 0),
+            Block::OakLeave => (6, 0),
 
             Block::Water => (7, 0),
         }

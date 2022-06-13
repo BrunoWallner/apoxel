@@ -8,28 +8,34 @@ use protocol::chunk::{Chunk, SuperChunk};
 
 const WATER_LEVEL: i64 = 20;
 
-// pub fn generate(chunk: Chunk, _seed: u32) -> SuperChunk {
-//     let noise = noise::Noise::new(86938);
+// pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
+//     let key = chunk.coord;
 //     let mut chunks: SuperChunk = SuperChunk::new(chunk);
+//     let noise = noise::Noise::new(86938);
 
-//     for x in 0..CHUNK_SIZE {
-//         for z in 0..CHUNK_SIZE {
-//             let global_x = (chunk.coord[0] * CHUNK_SIZE as i64) + x as i64;
-//             let global_z = (chunk.coord[2] * CHUNK_SIZE as i64) + z as i64;
+//     if key[1] != 0 {
+//         return chunks
+//     }
 
-//             let height = ((global_x as f32 * 0.05).sin() * 15.0) as i64;
+//     // for x in 0..CHUNK_SIZE {
+//     //     for z in 0..CHUNK_SIZE {
+//     //         let global_x = (key[0] * CHUNK_SIZE as i64) + x as i64;
+//     //         let global_z = (key[2] * CHUNK_SIZE as i64) + z as i64;
+//     //         let height = 4;
+//     //         let coord = [global_x, height, global_z];
 
-//             if height < chunk.coord[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64
-//                 && height >= chunk.coord[1] * CHUNK_SIZE as i64
-//             {
-//                 chunks.place([global_x, height, global_z], Block::Grass);
+//     //         if noise.get([global_x as f64, global_z as f64], 0.12, 1, 0.0) > 0.5 {
+//     //             chunks.place_structure(&structures::TREE, coord);
+//     //         }
+//     //     }
+//     // }
 
-//                 // house
-//                 let tree = noise.get([global_x as f64, global_z as f64], 0.12, 1, 150.0) > 0.5;
-//                 if tree {
-//                     chunks.place_structure(&structures::TREE, [global_x, height, global_z]);
-//                 }
-//             }
+//     let global_x = key[0] * CHUNK_SIZE as i64;
+//     let global_z = key[2] * CHUNK_SIZE as i64;
+
+//     for x in 0..32 {
+//         for z in 0..32 {
+//             chunks.place([global_x + x, CHUNK_SIZE as i64 + 1, global_z + z], Block::Dirt);
 //         }
 //     }
 
@@ -39,9 +45,6 @@ const WATER_LEVEL: i64 = 20;
 pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
     let key = chunk.coord;
     let terrain = terrain::TerrainGen::new(seed);
-
-    let tree_noise = noise::Noise::new(5874927);
-    let stone_noise = noise::Noise::new(7826596);
 
     let noise = noise::Noise::new(86938);
 
@@ -54,8 +57,8 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
 
             let (height, _biome) = terrain.get([global_x, global_z]);
 
-            if height < key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64
-                && height >= key[1] * CHUNK_SIZE as i64
+            if height <= key[1] * CHUNK_SIZE as i64 + CHUNK_SIZE as i64 + 1
+                && height >= key[1] * CHUNK_SIZE as i64 - 1
             {
                 for h in 0..height {
                     let block = match h {
@@ -63,7 +66,7 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
                         h if h < WATER_LEVEL + 3
                             && chunks
                                 .get([global_x, h + 1, global_z])
-                                .unwrap_or(Block::None)
+                                .unwrap_or(Block::Dirt)
                                 .to_category()
                                 .0
                                 == 0 =>
@@ -86,19 +89,19 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
                 }
 
                 // trees
-                let tree = tree_noise.get([global_x as f64, global_z as f64], 0.12, 1, 30.0) > 0.5;
+                let tree = noise.get([global_x as f64, global_z as f64], 0.12, 1, 30.0) > 0.5;
                 if tree && height > WATER_LEVEL {
                     chunks.place_structure(&structures::TREE, [global_x, height - 5, global_z]);
                 }
                 // stones
                 let stone =
-                    stone_noise.get([global_x as f64, global_z as f64], 0.12, 1, 100.0) > 0.53;
+                    noise.get([global_x as f64, global_z as f64], 0.12, 1, 100.0) > 0.53;
                 if stone {
                     chunks.place_structure(&structures::STONE, [global_x, height - 2, global_z]);
                 }
                 // house
                 let house =
-                    stone_noise.get([global_x as f64, global_z as f64], 0.12, 1, 150.0) > 0.54;
+                    noise.get([global_x as f64, global_z as f64], 0.12, 1, 150.0) > 0.54;
                 if house && height > WATER_LEVEL {
                     chunks.place_structure(&structures::HOUSE, [global_x, height - 7, global_z]);
                 }

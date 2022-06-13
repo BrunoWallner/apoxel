@@ -31,8 +31,8 @@ impl<T: AsyncRead + Unpin> Reader<T> {
     pub async fn get_event(&mut self) -> io::Result<Event> {
         let mut buffer: Vec<u8> = Vec::new();
         'get_bytes: loop {
-            let mut buf = [0u8; 255];
-            self.read(&mut buf).await?;
+            let mut buf = Box::new([0u8; 255]);
+            self.read(&mut (*buf)).await?;
             let completed = buf[0] == 1;
 
             buffer.append(&mut buf[2..buf[1] as usize].to_vec());

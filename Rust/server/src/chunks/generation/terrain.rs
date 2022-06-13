@@ -2,7 +2,7 @@ use super::noise::Noise;
 use splines::{Interpolation, Key, Spline};
 
 const ZOOM: f64 = 500.0;
-const OCTAVES: u16 = 10;
+const OCTAVES: u16 = 16;
 const AMPLITUDE: f64 = 80.0;
 
 pub enum Biome {
