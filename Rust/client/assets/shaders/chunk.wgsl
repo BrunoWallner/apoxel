@@ -29,7 +29,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     
     out.color = vertex.color;
-    let color_offset: f32 = noise(vertex.normal) / 30.0;
+    let color_offset: f32 = noise(vertex.normal) / 50.0;
     out.color[0] = out.color[0] + color_offset;
     out.color[1] = out.color[1] + color_offset;
     out.color[2] = out.color[2] + color_offset;

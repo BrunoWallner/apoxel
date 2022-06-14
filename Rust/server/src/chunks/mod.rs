@@ -41,10 +41,10 @@ pub struct ChunkHandle {
     sender: Sender<Instruction>
 }
 impl ChunkHandle {
-    pub fn init(chunk_update_sender: Sender<Coord>) -> Self {
+    pub fn init() -> Self {
         let (tx, rx) = channel();
         let handle =         Self {sender: tx};
-        init::init(rx, handle.clone(), chunk_update_sender);
+        init::init(rx, handle.clone());
         handle
     }
 

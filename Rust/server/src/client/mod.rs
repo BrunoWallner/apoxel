@@ -22,7 +22,6 @@ pub async fn init(
     addr: SocketAddr,
     users: Users,
     chunk_handle: ChunkHandle,
-    chunk_update_receiver: Receiver<Coord>,
 ) {
     let mut reader = rw.0;
     let sender = rw.1;
@@ -33,7 +32,6 @@ pub async fn init(
     let mut chunk_loader = chunk_loader::ChunkLoader::new(
         chunk_handle,
         sender.clone(),
-        chunk_update_receiver,
     );
 
     while let Ok(event) = reader.get_event().await {

@@ -38,7 +38,7 @@ fn handle_events(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ChunkMaterial>>,
 ) {
-    while let Some(event) = communicator.try_get_event() {
+    if let Some(event) = communicator.try_get_event() {
         match event {
             ChunkUpdate(chunk) => {
                 let mesh = chunks::mesh::generate(chunk.clone());

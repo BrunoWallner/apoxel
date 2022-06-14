@@ -8,11 +8,23 @@ use super::generation::generate;
 use crate::CONFIG;
 use super::StoredChunk;
 
+fn send_chunk_to_requester(
+    chunk: &Chunk,
+    requests: &mut HashMap<Token, (BTreeSet<Coord>, Sender<Chunk>)>,
+) {
+    // send main_chunk to all reqester if requested
+    for (token, (coords, sender)) in requests.clone().iter() {
+        if coords.contains(&chunk.coord) {
+            // if true client disconnected
+            if sender.send(chunk.clone()).is_err() {requests.remove(token);}
+        }
+    }
+}
+
 // generates chunks nonblockingly
 pub(super) fn init(
     rx: Receiver<Instruction>,
     chunk_handle: super::ChunkHandle,
-    chunk_update_sender: Sender<Coord>,
 ) {
     thread::spawn(move || {
         let threadpool = threadpool::ThreadPool::new(2);
@@ -20,14 +32,12 @@ pub(super) fn init(
         let mut chunks: BTreeMap<Coord, StoredChunk> = BTreeMap::default();
         let mut leftover: BTreeMap<Coord, Chunk> = BTreeMap::default();
 
-        let mut requests: Vec<(BTreeSet<Coord>, Sender<Chunk>)> = Vec::new();
+        let mut requests: HashMap<Token, (BTreeSet<Coord>, Sender<Chunk>)> = HashMap::default();
 
         while let Some(instruction) = rx.recv() {
             match instruction {
                 // INFO: main bottleneck in whole chunkhandle
                 PushSuperChunk{mut super_chunk, token} => {
-                    log::info!("chunks: {}, leftover: {}", chunks.len(), leftover.len());
-
                     /* --- PHASE 1 --- */
                     // extract main_chunk and merge it with leftover
                     let mut main_chunk = super_chunk.remove_main_chunk();
@@ -35,20 +45,7 @@ pub(super) fn init(
                         main_chunk.merge(&left);
                     }
                     if !main_chunk.is_empty() {
-                        // send main_chunk to all reqester if requested
-                        let mut to_delete: Vec<usize> = Vec::new();
-                        for (i, (coords, sender)) in requests.iter_mut().enumerate() {
-                            if coords.remove(&main_chunk.coord) {
-                                let _ = sender.send(main_chunk.clone());
-                            }
-                            // mark reqest entry as removable if empty
-                            if coords.is_empty() {to_delete.push(i)}
-                        }
-                        // delete empty request entries
-                        for (i, to_delete) in to_delete.iter().enumerate() {
-                            requests.remove(to_delete - i);
-                        }
-
+                        send_chunk_to_requester(&main_chunk, &mut requests);
                         /* --- PHASE 2 --- */
                         // push main_chunk to chunks and mark it as needed
                         let mc_coord = main_chunk.coord;
@@ -71,7 +68,7 @@ pub(super) fn init(
                             // guaranteed not to panic because of above code
                             let left = leftover.remove(&coord).unwrap();
                             stored_chunk.chunk.merge(&left);
-                            // let _ = chunk_update_sender.send(stored_chunk.chunk.coord);
+                            send_chunk_to_requester(&stored_chunk.chunk, &mut requests);
                         }
                     }
                 }
@@ -80,26 +77,18 @@ pub(super) fn init(
                     // filtering already generated coords and send them
                     let mut new_coords: BTreeSet<Coord> = BTreeSet::default();
                     for coord in coords.iter() {
-                        if let Some(chunk) = chunks.get(coord) {
-                            let mut chunk = chunk.clone().chunk;
-                            if let Some(left) = leftover.get(coord) {
-                                chunk.merge(left);
-                            }
-                            let _ = sender.send(chunk.clone());
-                        } else {
-                            new_coords.insert(*coord);
-                        }
+                        new_coords.insert(*coord);
                     }
-                    requests.push((new_coords.clone(), sender));
+                    requests.insert(token, (new_coords.clone(), sender));
 
                     for coord in new_coords.into_iter() {
-                        let chunk_handle = chunk_handle.clone();
-                        threadpool.execute(move || {
-                            let super_chunk = generate(Chunk::new(coord), CONFIG.chunks.seed);
-                            if !super_chunk.get_main_chunk().is_empty() {
+                        if !chunks.contains_key(&coord) { // || leftover.contains_key(&coord) {
+                            let chunk_handle = chunk_handle.clone();
+                            threadpool.execute(move || {
+                                let super_chunk = generate(Chunk::new(coord), CONFIG.chunks.seed);
                                 chunk_handle.push_super_chunk(super_chunk, token);
-                            }
-                        });
+                            });
+                        }
                     }
 
                 }

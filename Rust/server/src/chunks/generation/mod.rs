@@ -33,11 +33,7 @@ const WATER_LEVEL: i64 = 18;
 //     let global_x = key[0] * CHUNK_SIZE as i64;
 //     let global_z = key[2] * CHUNK_SIZE as i64;
 
-//     for x in 0..32 {
-//         for z in 0..32 {
-//             chunks.place([global_x + x + 16, CHUNK_SIZE as i64 - 1, global_z + z], Block::Dirt);
-//         }
-//     }
+//     chunks.place_structure(&structures::TREE, [global_x + 20, 10, global_z + 10]);
 
 //     chunks
 // }
@@ -111,7 +107,7 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
     chunks
 }
 
-// 3d
+// // 3d
 // for x in 0..CHUNK_SIZE {
 //     for y in 0..CHUNK_SIZE {
 //         for z in 0..CHUNK_SIZE {
