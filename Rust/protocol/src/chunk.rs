@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub const CHUNK_SIZE: usize = 32;
-pub type ChunkData = [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
+pub type ChunkData = Box<[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>;
 
 pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
     // Must work
@@ -23,7 +23,7 @@ pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Chunk {
-    pub data: Box<ChunkData>,
+    pub data: ChunkData,
     pub coord: Coord,
 }
 impl Chunk {
@@ -241,7 +241,7 @@ const BLOCK_COLORS: [[u8; 3]; 14] = [
 
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq)]
-#[repr(u16)]
+#[repr(u8)]
 pub enum Block {
     None,
     Air,
@@ -309,14 +309,14 @@ impl Block {
 
     pub fn from_color(color: [u8; 3]) -> Self {
         // WARN! MUST BE UPDATED
-        let first = Block::None as u16;
-        let last = Block::Water as u16;
+        let first = Block::None as u8;
+        let last = Block::Water as u8;
 
         if let Some(position) = BLOCK_COLORS.iter().position(|x| x == &color) {
-            match position as u16 {
+            match position as u8 {
                 // Block::Water as last Block in Block enum
                 i if i >= first && i <= last =>
-                // WARN! IT IS VERY UNSAFE, first and last MUST BE CORRECT!
+                // WARN! This IS VERY UNSAFE, first and last MUST BE CORRECT!
                 unsafe { std::mem::transmute(i) },
                 _ => Block::None,
             }

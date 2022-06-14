@@ -8,13 +8,13 @@ use protocol::event::prelude::*;
 use protocol::chunk::CHUNK_SIZE;
 use communication::Communicator;
 
-use chunks::custom_material::CustomMaterial;
+use chunks::chunk_material::ChunkMaterial;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(communication::plugin::CommunicationPlugin)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        .add_plugin(MaterialPlugin::<ChunkMaterial>::default())
         .add_plugin(player::PlayerPlugin)
         .add_system(handle_events)
         .add_system(update_player)
@@ -36,11 +36,9 @@ fn handle_events(
     mut cmds: Commands,
     communicator: Res<Communicator>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut materials: ResMut<Assets<ChunkMaterial>>,
 ) {
-    let mut events: usize = 0;
     while let Some(event) = communicator.try_get_event() {
-        events += 1;
         match event {
             ChunkUpdate(chunk) => {
                 let mesh = chunks::mesh::generate(chunk.clone());
@@ -51,15 +49,12 @@ fn handle_events(
                         (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
                         (chunk.coord[2] * CHUNK_SIZE as i64) as f32
                     ),
-                    material: materials.add(CustomMaterial {color: Color::WHITE}),
+                    material: materials.add(ChunkMaterial{}),
                     ..default()
                 });
 
             }
             _ => ()
-        }
-        if events > 2 {
-            break
         }
     }
 }

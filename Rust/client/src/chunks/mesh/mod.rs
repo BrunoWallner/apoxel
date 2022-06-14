@@ -1,11 +1,13 @@
 mod sides;
+mod light;
 
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::mesh::Indices;
 
-use protocol::chunk::{CHUNK_SIZE, Chunk};
-use super::custom_material::ATTRIBUTE_COLOR;
+use protocol::chunk::{CHUNK_SIZE, Chunk, ChunkData, Block};
+use super::chunk_material::ATTRIBUTE_COLOR;
+use super::chunk_material::ATTRIBUTE_LIGHT;
 use noise::OpenSimplex;
 use noise::NoiseFn;
 
@@ -20,7 +22,8 @@ pub fn generate(
 
     let mut positions: Vec<[f32; 3]> = Vec::with_capacity(v_length);
     let mut normals: Vec<[f32; 3]> = Vec::with_capacity(v_length);
-    let mut color: Vec<[f32; 4]> = Vec::with_capacity(v_length);
+    let mut colors: Vec<[f32; 4]> = Vec::with_capacity(v_length);
+    let mut lights: Vec<f32> = Vec::with_capacity(v_length);
     let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(v_length);
 
     let mut indices: Vec<u32> = Vec::with_capacity(v_length);
@@ -36,46 +39,53 @@ pub fn generate(
                 let block_category = chunk.data[x1][y1][z1].to_category();
                 
                 // air
-                if block_category.0 != 0 { 
+                if block_category.0 != 0 {
                     let mut sides: u8 = 0;
                     if check_left(&chunk, x1, y1, z1) {
                         sides::left(x, y, z, &mut positions, &mut normals, &mut indices);
+                        light::left(x1, y1, z1, &mut lights, &chunk.data);
                         sides += 1;
                     }
                     if check_right(&chunk, x1, y1, z1) {
                         sides::right(x, y, z, &mut positions, &mut normals, &mut indices);
+                        light::right(x1, y1, z1, &mut lights, &chunk.data);
                         sides += 1;
                     }
                     if check_back(&chunk, x1, y1, z1) {
                         sides::back(x, y, z, &mut positions, &mut normals, &mut indices);
+                        light::back(x1, y1, z1, &mut lights, &chunk.data);
                         sides += 1;
                     }
                     if check_front(&chunk, x1, y1, z1) {
                         sides::front(x, y, z, &mut positions, &mut normals, &mut indices);
+                        light::front(x1, y1, z1, &mut lights, &chunk.data);
                         sides += 1;
                     }
                     if check_top(&chunk, x1, y1, z1) {
                         sides::top(x, y, z, &mut positions, &mut normals, &mut indices);
+                        light::top(x1, y1, z1, &mut lights, &chunk.data);
                         sides += 1;
                     }
                     if check_bottom(&chunk, x1, y1, z1) {
                         sides::bottom(x, y, z, &mut positions, &mut normals, &mut indices);
+                        light::bottom(x1, y1, z1, &mut lights, &chunk.data);
                         sides += 1;
                     }
 
                     let c = chunk.data[x1][y1][z1].to_color();
-                    let offset = noise.get([
-                        (chunk.coord[0] as f64 * CHUNK_SIZE as f64 + x as f64) * 12.5,
-                        (chunk.coord[1] as f64 * CHUNK_SIZE as f64 + y as f64) * 12.5,
-                        (chunk.coord[2] as f64 * CHUNK_SIZE as f64 + z as f64) * 12.5,
-                    ]) as f32 / 5.0;
+                    // let offset = noise.get([
+                    //     (chunk.coord[0] as f64 * CHUNK_SIZE as f64 + x as f64) * 12.5,
+                    //     (chunk.coord[1] as f64 * CHUNK_SIZE as f64 + y as f64) * 12.5,
+                    //     (chunk.coord[2] as f64 * CHUNK_SIZE as f64 + z as f64) * 12.5,
+                    // ]) as f32 / 5.0;
+                    let offset = 0.0;
                     
                     for _ in 0..sides * 4 {
-                        color.push([
+                        colors.push([
                             c[0] as f32 / 255.0 + offset,
                             c[1] as f32 / 255.0 + offset,
                             c[2] as f32 / 255.0 + offset,
-                            1.0
+                            0.5
                         ]);
                         uvs.push([0.0, 0.0]);
                     }
@@ -86,7 +96,8 @@ pub fn generate(
 
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.insert_attribute(ATTRIBUTE_COLOR, color);
+    mesh.insert_attribute(ATTRIBUTE_COLOR, colors);
+    mesh.insert_attribute(ATTRIBUTE_LIGHT, lights);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
 
     mesh.set_indices(Some(Indices::U32(indices)));

@@ -1,2 +1,2 @@
 pub mod mesh;
-pub mod custom_material;
+pub mod chunk_material;

@@ -18,55 +18,19 @@ use bevy::{
     },
 };
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_startup_system(setup)
-        .run();
-}
-
 // A "high" random id should be used for custom attributes to ensure consistent sorting and avoid collisions with other attributes.
 // See the MeshVertexAttribute docs for more info.
 pub const ATTRIBUTE_COLOR: MeshVertexAttribute =
-    MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
+    MeshVertexAttribute::new("Color", 988540917, VertexFormat::Float32x4);
 
-/// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-) {
-    let mut mesh = Mesh::from(shape::Cube { size: 1.0 });
-    mesh.insert_attribute(
-        ATTRIBUTE_COLOR,
-        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
-        vec![[1.0, 0.0, 0.0, 1.0]; 24],
-    );
+pub const ATTRIBUTE_LIGHT: MeshVertexAttribute =
+    MeshVertexAttribute::new("Light", 769375867, VertexFormat::Float32);
 
-    // cube
-    commands.spawn().insert_bundle(MaterialMeshBundle {
-        mesh: meshes.add(mesh),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: Color::WHITE,
-        }),
-        ..default()
-    });
-
-    // camera
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
-}
 
 // This is the struct that will be passed to your shader
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct CustomMaterial {
-    pub color: Color,
-}
+pub struct ChunkMaterial {}
 
 #[derive(Clone)]
 pub struct GpuCustomMaterial {
@@ -75,8 +39,8 @@ pub struct GpuCustomMaterial {
 }
 
 // The implementation of [`Material`] needs this impl to work properly.
-impl RenderAsset for CustomMaterial {
-    type ExtractedAsset = CustomMaterial;
+impl RenderAsset for ChunkMaterial {
+    type ExtractedAsset = ChunkMaterial;
     type PreparedAsset = GpuCustomMaterial;
     type Param = (SRes<RenderDevice>, SRes<MaterialPipeline<Self>>);
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -84,17 +48,11 @@ impl RenderAsset for CustomMaterial {
     }
 
     fn prepare_asset(
-        extracted_asset: Self::ExtractedAsset,
+        _extracted_asset: Self::ExtractedAsset,
         (render_device, material_pipeline): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let color = Vec4::from_slice(&extracted_asset.color.as_linear_rgba_f32());
-
-        let byte_buffer = [0u8; Vec4::SIZE.get() as usize];
-        let mut buffer = bevy::render::render_resource::encase::UniformBuffer::new(byte_buffer);
-        buffer.write(&color).unwrap();
-
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            contents: buffer.as_ref(),
+            contents: &[0; Vec4::SIZE.get() as usize],
             label: None,
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
@@ -114,7 +72,7 @@ impl RenderAsset for CustomMaterial {
     }
 }
 
-impl Material for CustomMaterial {
+impl Material for ChunkMaterial {
     fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
         Some(asset_server.load("shaders/chunk.wgsl"))
     }
@@ -150,6 +108,8 @@ impl Material for CustomMaterial {
         let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_COLOR.at_shader_location(1),
+            ATTRIBUTE_LIGHT.at_shader_location(2),
+            Mesh::ATTRIBUTE_NORMAL.at_shader_location(3),
         ])?;
         descriptor.vertex.buffers = vec![vertex_layout];
         Ok(())

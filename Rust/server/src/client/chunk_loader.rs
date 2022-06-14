@@ -2,6 +2,7 @@ use crate::channel::*;
 use crate::chunks::ChunkHandle;
 use crate::CONFIG;
 use protocol::chunk::CHUNK_SIZE;
+use protocol::chunk::Chunk;
 use protocol::event::*;
 use protocol::Token;
 use protocol::{Coord, PlayerCoord};
@@ -12,6 +13,8 @@ pub(super) struct ChunkLoader {
     tcp_sender: Sender<Event>,
     last_load_pos: PlayerCoord,
     chunk_update_receiver: Receiver<Coord>,
+    chunk_receiver: Receiver<Chunk>,
+    chunk_sender: Sender<Chunk>,
     chunks: BTreeSet<Coord>,
 }
 impl ChunkLoader {
@@ -21,11 +24,14 @@ impl ChunkLoader {
         chunk_update_receiver: Receiver<Coord>,
     ) -> Self {
         let last_load_pos = [0.0, 0.0, 0.0];
+        let (chunk_sender, chunk_receiver) = channel();
         ChunkLoader {
             chunk_handle,
             tcp_sender,
             last_load_pos,
             chunk_update_receiver,
+            chunk_sender,
+            chunk_receiver,
             chunks: BTreeSet::default(),
         }
     }
@@ -39,23 +45,16 @@ impl ChunkLoader {
     }
 
     pub fn update_position(&mut self, pos: PlayerCoord, token: Token) {
+        let mut chunk_coords: Vec<Coord> = Vec::new();
+        while let Some(coord) = self.chunk_update_receiver.try_recv() {
+            chunk_coords.push(coord);
+        }
+        
         let origin =
             protocol::chunk::get_chunk_coords(&[pos[0] as i64, pos[1] as i64, pos[2] as i64]).0;
 
-        // fetch and process chunk updates
-        let mut chunk_coords: Vec<Coord> = Vec::new();
-        // while let Some(coord) = self.chunk_update_receiver.try_recv() {
-        //     if protocol::calculate_chunk_distance(&origin, &coord)
-        //         < CONFIG.chunks.render_distance.into()
-        //     {
-        //         chunk_coords.push(coord);
-        //     }
-        // }
-
         let distance: f64 = protocol::calculate_distance(&pos, &self.last_load_pos);
         if distance as usize > CHUNK_SIZE {
-            self.last_load_pos = pos;
-
             let offset = CONFIG.chunks.render_distance as i64;
             for x in origin[0] - offset..=origin[0] + offset {
                 for y in origin[1] - offset..=origin[1] + offset {
@@ -71,21 +70,17 @@ impl ChunkLoader {
                 }
             }
         }
-        chunk_coords.clear_duplicates();
-        chunk_coords
-            .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
-        for chunk_coords in chunk_coords.chunks(64) {
-            if let Some(chunks) = self
-                .chunk_handle
-                .request_chunks(chunk_coords.to_vec(), token)
-            {
-                // every chunk that is requested and not empty ends up here
-                for chunk in chunks {
-                    let _ = self
-                        .tcp_sender
-                        .send(Event::ServerToClient(ServerToClient::ChunkUpdate(chunk)));
-                }
-            }
+        if !chunk_coords.is_empty() {
+            chunk_coords
+                .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
+
+            self.chunk_handle.request_chunks(chunk_coords, token, self.chunk_sender.clone());
+        }
+
+        if let Some(chunk) = self.chunk_receiver.try_recv() {
+            let _ = self
+                .tcp_sender
+                .send(Event::ServerToClient(ServerToClient::ChunkUpdate(chunk)));
         }
     }
 }

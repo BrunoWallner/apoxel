@@ -21,6 +21,10 @@ fn spawn_player(
     mut commands: Commands,
 ) {
     commands.spawn_bundle(Camera3dBundle {
+        projection: bevy::render::camera::Projection::Perspective(PerspectiveProjection{
+            fov: 85.0 / 90.0,
+            ..default()
+        }),
         transform: Transform::from_xyz(0.0, 100.0, 0.0).looking_at(Vec3::Z, Vec3::Y),
         ..default()
     })
