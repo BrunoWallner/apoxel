@@ -46,10 +46,27 @@ impl ChunkLoader {
     }
 
     pub fn update_position(&mut self, pos: PlayerCoord, token: Token) {
-        let mut chunk_load_coords: Vec<Coord> = Vec::new();
-        let mut chunk_update_coords: Vec<Coord> = Vec::new();
         let origin =
             protocol::chunk::get_chunk_coords(&[pos[0] as i64, pos[1] as i64, pos[2] as i64]).0;
+
+        /* --- UNLOAD --- */
+        let mut to_unload: Vec<Coord> = Vec::new();
+        for chunk in self.chunks.clone().into_iter() {
+            if protocol::calculate_chunk_distance(&chunk, &origin) > CONFIG.chunks.render_distance as i64 {
+                self.chunks.remove(&chunk);
+                to_unload.push(chunk);
+            }
+        }
+        if !to_unload.is_empty() {
+            self.chunk_handle.unload_chunks(to_unload.clone(), token);
+            let _ = self
+                .tcp_sender
+                .send(Event::ServerToClient(ServerToClient::ChunkUnloads(to_unload)));
+        }
+
+        /* --- LOAD --- */
+        let mut chunk_load_coords: Vec<Coord> = Vec::new();
+        let mut chunk_update_coords: Vec<Coord> = Vec::new();
 
         let distance: f64 = protocol::calculate_distance(&pos, &self.last_load_pos);
         if distance as usize > CHUNK_SIZE {
@@ -81,17 +98,29 @@ impl ChunkLoader {
             self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_sender.clone(), self.chunk_update_sender.clone(), token);
         }
 
-        // INFO: ONLY ONE CHUNKUPDATE PER CYCLE
-        if let Some(chunk) = self.chunk_load_receiver.try_recv() {
-            let _ = self
-                .tcp_sender
-                .send(Event::ServerToClient(ServerToClient::ChunkLoad(chunk)));
-        } 
-        if let Some(chunk) = self.chunk_update_receiver.try_recv() {
-            let _ = self
-                .tcp_sender
-                .send(Event::ServerToClient(ServerToClient::ChunkUpdate(chunk)));
+        // Receiving and sending to client
+        let mut chunk_loads: Vec<Chunk> = Vec::new();
+        let mut chunk_updates: Vec<ChunkDelta> = Vec::new();
+        for _ in 0..10 {
+            if let Some(chunk) = self.chunk_load_receiver.try_recv() {
+                chunk_loads.push(chunk);
+            } 
+            if let Some(chunk) = self.chunk_update_receiver.try_recv() {
+                chunk_updates.push(chunk)
+            }
         }
+
+        if !chunk_loads.is_empty() {
+            let _ = self
+                .tcp_sender
+                .send(Event::ServerToClient(ServerToClient::ChunkLoads(chunk_loads)));
+        }
+        if !chunk_updates.is_empty() {
+            let _ = self
+                .tcp_sender
+                .send(Event::ServerToClient(ServerToClient::ChunkUpdates(chunk_updates)));
+        }
+
     }
 }
 

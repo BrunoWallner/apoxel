@@ -19,8 +19,9 @@ pub enum ClientToServer {
 pub enum ServerToClient {
     Error(ClientError),
     Token(Token),
-    ChunkLoad(Chunk),
-    ChunkUpdate(ChunkDelta),
+    ChunkUnloads(Vec<Coord>),
+    ChunkLoads(Vec<Chunk>),
+    ChunkUpdates(Vec<ChunkDelta>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -3,7 +3,6 @@ mod communication;
 mod player;
 mod chunks;
 
-use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
 use protocol::prelude::*;
 use protocol::chunk::CHUNK_SIZE;
@@ -57,62 +56,74 @@ fn handle_events(
 ) {
     if let Some(event) = communicator.try_get_event() {
         match event {
-            ChunkLoad (mut chunk) => {
-                //  if chunkupdate was faster than chunkload
-                if let Some((entity, c)) = chunks.map.get(&chunk.coord) {
-                    chunk.merge(c);
-                    cmds.entity(*entity).despawn_recursive();
+            ChunkLoads (mut chunkloads) => {
+                for chunk in chunkloads.iter_mut() {
+                    //  if chunkupdate was faster than chunkload
+                    if let Some((entity, c)) = chunks.map.get(&chunk.coord) {
+                        chunk.merge(c);
+                        cmds.entity(*entity).despawn_recursive();
+                    }
+                    let mesh = chunks::mesh::generate(chunk.clone());
+                    let entity = cmds.spawn_bundle(MaterialMeshBundle {
+                        mesh: meshes.add(mesh),
+                        transform: Transform::from_xyz(
+                            (chunk.coord[0] * CHUNK_SIZE as i64) as f32,
+                            (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
+                            (chunk.coord[2] * CHUNK_SIZE as i64) as f32
+                        ),
+                        material: materials.add(ChunkMaterial{}),
+                        ..default()
+                    }).id();
+                    chunks.map.insert(chunk.coord, (entity, chunk.clone()));
                 }
-                let mesh = chunks::mesh::generate(chunk.clone());
-                let entity = cmds.spawn_bundle(MaterialMeshBundle {
-                    mesh: meshes.add(mesh),
-                    transform: Transform::from_xyz(
-                        (chunk.coord[0] * CHUNK_SIZE as i64) as f32,
-                        (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
-                        (chunk.coord[2] * CHUNK_SIZE as i64) as f32
-                    ),
-                    material: materials.add(ChunkMaterial{}),
-                    ..default()
-                }).id();
-                chunks.map.insert(chunk.coord, (entity, chunk));
             }
-            ChunkUpdate (delta) => {
-                if let Some((entity, chunk)) = chunks.map.get_mut(&delta.0) {
-                    chunk.apply_delta(&delta);
-                    cmds.entity(*entity).despawn_recursive();
-
-                    // generate updated mesh
-                    let mesh = chunks::mesh::generate(chunk.clone());
-                    let new_entity = cmds.spawn_bundle(MaterialMeshBundle {
-                        mesh: meshes.add(mesh),
-                        transform: Transform::from_xyz(
-                            (chunk.coord[0] * CHUNK_SIZE as i64) as f32,
-                            (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
-                            (chunk.coord[2] * CHUNK_SIZE as i64) as f32
-                        ),
-                        material: materials.add(ChunkMaterial{}),
-                        ..default()
-                    }).id();
-
-                    *entity = new_entity;
-                } else {
-                    let mut chunk = Chunk::new(delta.0);
-                    chunk.apply_delta(&delta);
-
-                    // generate updated mesh
-                    let mesh = chunks::mesh::generate(chunk.clone());
-                    let new_entity = cmds.spawn_bundle(MaterialMeshBundle {
-                        mesh: meshes.add(mesh),
-                        transform: Transform::from_xyz(
-                            (chunk.coord[0] * CHUNK_SIZE as i64) as f32,
-                            (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
-                            (chunk.coord[2] * CHUNK_SIZE as i64) as f32
-                        ),
-                        material: materials.add(ChunkMaterial{}),
-                        ..default()
-                    }).id();
-
-                    chunks.map.insert(delta.0, (new_entity, chunk));
+            ChunkUpdates (deltas) => {
+                for delta in deltas.iter() {
+                    if let Some((entity, chunk)) = chunks.map.get_mut(&delta.0) {
+                        chunk.apply_delta(&delta);
+                        cmds.entity(*entity).despawn_recursive();
+    
+                        // generate updated mesh
+                        let mesh = chunks::mesh::generate(chunk.clone());
+                        let new_entity = cmds.spawn_bundle(MaterialMeshBundle {
+                            mesh: meshes.add(mesh),
+                            transform: Transform::from_xyz(
+                                (chunk.coord[0] * CHUNK_SIZE as i64) as f32,
+                                (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
+                                (chunk.coord[2] * CHUNK_SIZE as i64) as f32
+                            ),
+                            material: materials.add(ChunkMaterial{}),
+                            ..default()
+                        }).id();
+    
+                        *entity = new_entity;
+                    } else {
+                        let mut chunk = Chunk::new(delta.0);
+                        chunk.apply_delta(&delta);
+    
+                        // generate updated mesh
+                        let mesh = chunks::mesh::generate(chunk.clone());
+                        let new_entity = cmds.spawn_bundle(MaterialMeshBundle {
+                            mesh: meshes.add(mesh),
+                            transform: Transform::from_xyz(
+                                (chunk.coord[0] * CHUNK_SIZE as i64) as f32,
+                                (chunk.coord[1] * CHUNK_SIZE as i64) as f32,
+                                (chunk.coord[2] * CHUNK_SIZE as i64) as f32
+                            ),
+                            material: materials.add(ChunkMaterial{}),
+                            ..default()
+                        }).id();
+    
+                        chunks.map.insert(delta.0, (new_entity, chunk));
+                    }
+                }
+            }
+            ChunkUnloads (coords) => {
+                for coord in coords.iter() {
+                    if let Some((entity, _chunk)) = chunks.map.get(coord) {
+                        cmds.entity(*entity).despawn_recursive();
+                        chunks.map.remove(coord);
+                    }
                 }
             }
             _ => ()
