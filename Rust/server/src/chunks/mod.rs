@@ -45,6 +45,11 @@ enum Instruction {
         super_chunk: SuperChunk,
         token: Token,
     },
+    PlaceStructure {
+        coord: Coord,
+        structure: Structure,
+        token: Token,
+    }
 }
 
 // cloneable remote to chunkthread
@@ -81,6 +86,12 @@ impl ChunkHandle {
         let _ = self
             .sender
             .send(Instruction::RequestUnloadChunk { coords, token });
+    }
+
+    pub fn place_structure(&self, coord: Coord, structure: Structure, token: Token) {
+        let _ = self
+            .sender
+            .send(Instruction::PlaceStructure { coord, structure, token });
     }
 
     pub(crate) fn push_super_chunk(&self, super_chunk: SuperChunk, token: Token) {

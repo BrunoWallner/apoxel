@@ -85,7 +85,6 @@ impl Block {
         match self {
             Block::None => Some(0.0),
             Block::Air => Some(0.0),
-            Block::Water => Some(0.5),
             _ => None,
         }
     }

@@ -21,6 +21,7 @@ fn send_chunk_to_requester(
             Sender<ChunkDelta>,
         ),
     >,
+    disallow_loading: bool,
 ) {
     // INFO: BLOCK BREAKING MUST USE AIR INSTEAD OF NONE
     // otherwise this will block chunk-updates
@@ -36,7 +37,7 @@ fn send_chunk_to_requester(
         update_sender
     )) in requests.clone().iter()
     {
-        if load_coords.contains(&chunk.coord) {
+        if load_coords.contains(&chunk.coord) && !disallow_loading {
             // if true client disconnected
             if load_sender.send(chunk.clone()).is_err() {
                 requests.remove(token);
@@ -57,13 +58,14 @@ fn send_chunk_to_requester(
 }
 
 // generates chunks nonblockingly
+// INFO: leftover do get leaked and not unspawned if they get generated outside of view of client
 pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) {
     thread::spawn(move || {
         let threadpool = threadpool::ThreadPool::new(2);
 
         let mut chunk_queque: BTreeSet<Coord> = BTreeSet::default();
         let mut chunks: BTreeMap<Coord, StoredChunk> = BTreeMap::default();
-        let mut leftover: BTreeMap<Coord, Chunk> = BTreeMap::default();
+        let mut leftover: BTreeMap<Coord, StoredChunk> = BTreeMap::default();
 
         let mut requests: HashMap<
             Token,
@@ -90,12 +92,13 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                     if chunks.contains_key(&main_chunk.coord) {log::warn!("invalid chunk generation")}
                     
                     if let Some(left) = leftover.remove(&main_chunk.coord) {
-                        main_chunk.merge(&left);
+                        main_chunk.merge(&left.chunk);
                     }
-                    if !main_chunk.is_empty() || true {
-                        send_chunk_to_requester(None, &main_chunk, &mut requests);
-                        /* --- PHASE 2 --- */
-                        // push main_chunk to chunks and mark it as needed
+
+                    /* --- PHASE 2 --- */
+                    // push main_chunk to chunks and mark it as needed
+                    if !main_chunk.is_empty() {
+                        send_chunk_to_requester(None, &main_chunk, &mut requests, false);
                         let mc_coord = main_chunk.coord;
                         let mut stored_chunk = StoredChunk::new(main_chunk);
                         stored_chunk.mark_needed_by(token);
@@ -106,8 +109,11 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                     // handle leftovers
                     for (coord, left) in super_chunk.chunks.into_iter() {
                         if let Some(already_left) = leftover.get_mut(&coord) {
-                            already_left.merge(&left);
+                            already_left.chunk.merge(&left);
+                            already_left.mark_needed_by(token);
                         } else {
+                            let mut left = StoredChunk::new(left.clone());
+                            left.mark_needed_by(token);
                             leftover.insert(coord, left);
                         }
 
@@ -116,8 +122,11 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                             // guaranteed not to panic because of above code
                             let pre_chunk = stored_chunk.clone();
                             let left = leftover.remove(&coord).unwrap();
-                            stored_chunk.chunk.merge(&left);
-                            send_chunk_to_requester(Some(&pre_chunk), &stored_chunk.chunk, &mut requests);
+                            stored_chunk.chunk.merge(&left.chunk);
+                            send_chunk_to_requester(Some(&pre_chunk), &stored_chunk.chunk, &mut requests, false);
+                        } else {
+                            // send leftover to client
+                            send_chunk_to_requester(Some(&StoredChunk::new(Chunk::new(coord))), &left, &mut requests, true);
                         }
                     }
                 }
@@ -138,13 +147,11 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                     for update_coord in update_coords.iter() {
                         u_coords.insert(*update_coord);
                     }
-                    requests.insert(token, (l_coords, u_coords, load_sender, update_sender));
+                    requests.insert(token, (l_coords, u_coords, load_sender.clone(), update_sender));
 
                     // request generation of not already loaded chunks
-                    let mut generated: usize = 0;
                     for coord in load_coords.into_iter() {
                         if !chunks.contains_key(&coord) && !chunk_queque.contains(&coord) {
-                            generated += 1;
                             chunk_queque.insert(coord);
                             // || leftover.contains_key(&coord) {
                             let chunk_handle = chunk_handle.clone();
@@ -152,18 +159,38 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                                 let super_chunk = generate(Chunk::new(coord), CONFIG.chunks.seed);
                                 chunk_handle.push_super_chunk(super_chunk, token);
                             });
+                        } else {
+                            let chunk = chunks.get_mut(&coord).unwrap();
+                            if let Some(left) = leftover.get(&coord) {
+                                chunk.chunk.merge(&left.chunk);
+                            }
+                            let _ = load_sender.send(chunk.chunk.clone());
                         }
                     }
                 }
                 RequestUnloadChunk { coords, token } => {
                     for coord in coords.iter() {
+                        // chunk
                         if let Some(chunk) = chunks.get_mut(coord) {
                             chunk.mark_unneeded_by(&token);
                             if !chunk.is_needed() {
                                 chunks.remove(coord);
                             }
                         }
+                        // leftover
+                        if let Some(left) = leftover.get_mut(coord) {
+                            left.mark_unneeded_by(&token);
+                            if !left.is_needed() {
+                                leftover.remove(coord);
+                            }
+                        }
+
                     }
+                }
+                Instruction::PlaceStructure { coord, structure, token } => {
+                    let mut super_chunk = SuperChunk::new(Chunk::new(coord));
+                    super_chunk.place_structure(&structure, coord);
+                    chunk_handle.push_super_chunk(super_chunk, token);
                 }
             }
         }

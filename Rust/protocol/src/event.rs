@@ -11,7 +11,7 @@ pub enum ClientToServer {
     Register{name: String},
     Login{token: Token},
     Move{coord: PlayerCoord},
-    PlaceStructure{pos: Coord, structure: Structure},
+    PlaceStructure{coord: Coord, structure: Structure},
     Disconnect,
 }
 

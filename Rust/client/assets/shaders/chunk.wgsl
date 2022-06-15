@@ -29,7 +29,12 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     
     out.color = vertex.color;
-    let color_offset: f32 = noise(vertex.normal) / 50.0;
+    let noise_pos = vec3<f32>(
+        vertex.normal[0] * 0.5,
+        vertex.normal[1] * 0.5,
+        vertex.normal[2] * 0.5,
+    );
+    let color_offset: f32 = noise(noise_pos) / 30.0;
     out.color[0] = out.color[0] + color_offset;
     out.color[1] = out.color[1] + color_offset;
     out.color[2] = out.color[2] + color_offset;
@@ -46,5 +51,5 @@ struct FragmentInput {
 
 [[stage(fragment)]]
 fn fragment(input: FragmentInput) -> [[location(0)]] vec4<f32> {
-    return input.color * pow(input.light, 0.75);
+    return input.color * input.light;
 }

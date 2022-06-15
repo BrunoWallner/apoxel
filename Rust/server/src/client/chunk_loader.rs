@@ -5,7 +5,6 @@ use protocol::chunk::Chunk;
 use protocol::chunk::CHUNK_SIZE;
 use protocol::event::*;
 use protocol::Token;
-use protocol::prelude::ChunkData;
 use protocol::prelude::ChunkDelta;
 use protocol::{Coord, PlayerCoord};
 use std::collections::BTreeSet;

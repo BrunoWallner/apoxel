@@ -38,10 +38,10 @@ impl TerrainGen {
 
 fn get_mountain_spline() -> Spline<f64, f64> {
     Spline::from_vec(vec![
-        Key::new(0.0, 0.0, Interpolation::Linear),
-        Key::new(0.3, 0.2, Interpolation::Linear),
-        Key::new(0.55, 0.5, Interpolation::Linear),
-        Key::new(0.6, 0.7, Interpolation::Linear),
-        Key::new(1.0, 1.0, Interpolation::Linear),
+        Key::new(0.0, 0.1, Interpolation::Linear),
+        Key::new(0.25, 0.4, Interpolation::Linear),
+        Key::new(0.5, 0.5, Interpolation::Linear),
+        Key::new(0.75, 0.7, Interpolation::Linear),
+        Key::new(1.0, 0.75, Interpolation::Linear),
     ])
 }
