@@ -1,9 +1,16 @@
 use super::Coord;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use super::blocks::Block;
 
+// currently has to have u8 size limit
+// I just dont want to use `as usize` as much
 pub const CHUNK_SIZE: usize = 32;
 pub type ChunkData = Box<[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>;
+// to save memory in ChunkDelta
+// if CHUNK_SIZE is bigger than 255 this must be at least 
+pub type ChunkIndex = [u8; 3];
+pub type ChunkDelta = (Coord, Vec<(ChunkIndex, Block)>);
 
 pub fn get_chunk_coords(coord: &[i64; 3]) -> ([i64; 3], [usize; 3]) {
     // Must work
@@ -56,6 +63,26 @@ impl Chunk {
             }
         }
         empty
+    }
+    pub fn get_delta(&self, other: &Self) -> ChunkDelta {
+        let mut delta: Vec<(ChunkIndex, Block)> = Vec::new();
+        for x in 0..CHUNK_SIZE {
+            for y in 0..CHUNK_SIZE {
+                for z in 0..CHUNK_SIZE {
+                    if self.data[x][y][z] != other.data[x][y][z] {
+                        // WARN: only OK when CHUNK_SIZE <= 255
+                        delta.push(([x as u8, y as u8, z as u8], other.data[x][y][z]));
+                    }
+                }
+            }
+        }
+        (self.coord, delta)
+    }
+    pub fn apply_delta(&mut self, delta: &ChunkDelta) {
+        // INFO: might want to check if block is None
+        for (coord, block) in delta.1.iter() {
+            self.data[coord[0] as usize][coord[1] as usize][coord[2] as usize] = *block;
+        }
     }
     // SIDES
     pub fn get_left_side(&self) -> [[Block; CHUNK_SIZE]; CHUNK_SIZE] {
@@ -159,40 +186,6 @@ impl SuperChunk {
             }
         }
     }
-    // pub fn place_structure(&mut self, structure: &Structure, coord: [i64; 3], mirror: [bool; 3]) {
-    //     // to center structure on x and z
-    //     let x_offset = structure.size[0] / 2;
-    //     let z_offset = structure.size[2] / 2;
-
-    //     for x in 0..structure.size[0] {
-    //         for y in 0..structure.size[1] {
-    //             for z in 0..structure.size[2] {
-    //                 let block = structure.get([x, y, z]).unwrap();
-    //                 if block != Block::None {
-    //                     let mut x = x;
-    //                     let mut y = y;
-    //                     let mut z = z;
-    //                     // mirroring
-    //                     if mirror[0] {
-    //                         x = structure.size[0] - x
-    //                     }
-    //                     if mirror[1] {
-    //                         y = structure.size[1] - y
-    //                     }
-    //                     if mirror[2] {
-    //                         z = structure.size[2] - z
-    //                     }
-
-    //                     let x = coord[0] - x_offset as i64 + x as i64;
-    //                     let y = coord[1] + y as i64;
-    //                     let z = coord[2] - z_offset as i64 + z as i64;
-
-    //                     self.place([x, y, z], block);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 
     // old
     pub fn place_structure(&mut self, structure: &Structure, coord: [i64; 3]) {
@@ -214,120 +207,6 @@ impl SuperChunk {
                 }
             }
         }
-    }
-}
-
-const BLOCK_COLORS: [[u8; 3]; 14] = [
-    [0, 0, 0],
-    [255, 255, 255],
-    // terrain
-    [10, 200, 30],
-    [50, 30, 30],
-    [100, 100, 100],
-    [70, 70, 70],
-    [190, 160, 60],
-    // woods
-    [75, 35, 35],
-    [115, 65, 35],
-    // colors
-    [255, 0, 0],
-    [0, 255, 0],
-    [0, 0, 255],
-    // foliage
-    [40, 110, 40],
-    // liquids
-    [0, 100, 200],
-];
-
-#[allow(dead_code)]
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq)]
-#[repr(u8)]
-pub enum Block {
-    None,
-    Air,
-
-    // terrain
-    Grass,
-    Dirt,
-
-    Stone,
-    DarkStone,
-
-    Sand,
-
-    // woods
-    OakWood,
-    AppleTreeWood,
-
-    // colors
-    Red,
-    Green,
-    Blue,
-
-    // foliage
-    OakLeave,
-
-    // liquids
-    Water,
-}
-
-impl Block {
-    pub fn to_category(&self) -> (u8, u8) {
-        match self {
-            Block::None => (0, 0),
-            Block::Air => (0, 1),
-
-            Block::Grass => (1, 0),
-            Block::Dirt => (1, 1),
-
-            Block::Stone => (2, 0),
-            Block::DarkStone => (2, 1),
-
-            Block::Sand => (3, 2),
-
-            Block::OakWood => (4, 0),
-            Block::AppleTreeWood => (4, 1),
-
-            Block::Red => (5, 0),
-            Block::Green => (5, 1),
-            Block::Blue => (5, 2),
-
-            Block::OakLeave => (6, 0),
-
-            Block::Water => (7, 0),
-        }
-    }
-
-    pub fn transparency(&self) -> Option<f32> {
-        match self {
-            Block::None => Some(0.0),
-            Block::Air => Some(0.0),
-            Block::Water => Some(0.5),
-            _ => None,
-        }
-    }
-
-    pub fn from_color(color: [u8; 3]) -> Self {
-        // WARN! MUST BE UPDATED
-        let first = Block::None as u8;
-        let last = Block::Water as u8;
-
-        if let Some(position) = BLOCK_COLORS.iter().position(|x| x == &color) {
-            match position as u8 {
-                // Block::Water as last Block in Block enum
-                i if i >= first && i <= last =>
-                // WARN! This IS VERY UNSAFE, first and last MUST BE CORRECT!
-                unsafe { std::mem::transmute(i) },
-                _ => Block::None,
-            }
-        } else {
-            Block::None
-        }
-    }
-
-    pub fn to_color(&self) -> [u8; 3] {
-        let index = *self as u16;
-        BLOCK_COLORS[index as usize]
     }
 }
 

@@ -1,5 +1,5 @@
 use protocol::chunk::ChunkData;
-use protocol::chunk::Block;
+use protocol::blocks::Block;
 
 const LIGHT_REDUX: f32 = 1.0 / 4.0;
 

@@ -3,6 +3,7 @@ pub mod writer;
 pub mod error;
 pub mod event;
 pub mod chunk;
+pub mod blocks;
 
 pub type Token = [u8; 16];
 pub type Coord = [i64; 3];
@@ -43,4 +44,12 @@ pub fn player_coord_to_coord(player_coord: PlayerCoord) -> Coord {
         player_coord[1] as i64,
         player_coord[2] as i64,
     ]
+}
+
+pub mod prelude {
+    pub use super::{Token, Coord, PlayerCoord};
+    pub use super::error::*;
+    pub use super::event::prelude::*;
+    pub use super::chunk::*;
+    pub use super::blocks::Block;
 }

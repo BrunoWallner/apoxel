@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::mesh::Indices;
 
-use protocol::chunk::{CHUNK_SIZE, Chunk, ChunkData, Block};
+use protocol::chunk::{CHUNK_SIZE, Chunk, ChunkData};
+use protocol::blocks::Block;
 use super::chunk_material::ATTRIBUTE_COLOR;
 use super::chunk_material::ATTRIBUTE_LIGHT;
 use noise::OpenSimplex;

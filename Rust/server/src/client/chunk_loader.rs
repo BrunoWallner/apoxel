@@ -1,10 +1,12 @@
 use crate::channel::*;
 use crate::chunks::ChunkHandle;
 use crate::CONFIG;
-use protocol::chunk::CHUNK_SIZE;
 use protocol::chunk::Chunk;
+use protocol::chunk::CHUNK_SIZE;
 use protocol::event::*;
 use protocol::Token;
+use protocol::prelude::ChunkData;
+use protocol::prelude::ChunkDelta;
 use protocol::{Coord, PlayerCoord};
 use std::collections::BTreeSet;
 
@@ -12,22 +14,26 @@ pub(super) struct ChunkLoader {
     chunk_handle: ChunkHandle,
     tcp_sender: Sender<Event>,
     last_load_pos: PlayerCoord,
-    chunk_receiver: Receiver<Chunk>,
-    chunk_sender: Sender<Chunk>,
+    chunk_load_receiver: Receiver<Chunk>,
+    chunk_load_sender: Sender<Chunk>,
+    chunk_update_receiver: Receiver<ChunkDelta>,
+    chunk_update_sender: Sender<ChunkDelta>,
+    chunks: BTreeSet<Coord>,
 }
 impl ChunkLoader {
-    pub fn new(
-        chunk_handle: ChunkHandle,
-        tcp_sender: Sender<Event>,
-    ) -> Self {
+    pub fn new(chunk_handle: ChunkHandle, tcp_sender: Sender<Event>) -> Self {
         let last_load_pos = [0.0, 0.0, 0.0];
-        let (chunk_sender, chunk_receiver) = channel();
+        let (chunk_load_sender, chunk_load_receiver) = channel();
+        let (chunk_update_sender, chunk_update_receiver) = channel();
         ChunkLoader {
             chunk_handle,
             tcp_sender,
             last_load_pos,
-            chunk_sender,
-            chunk_receiver,
+            chunk_load_sender,
+            chunk_load_receiver,
+            chunk_update_sender,
+            chunk_update_receiver,
+            chunks: BTreeSet::default(),
         }
     }
 
@@ -40,7 +46,8 @@ impl ChunkLoader {
     }
 
     pub fn update_position(&mut self, pos: PlayerCoord, token: Token) {
-        let mut chunk_coords: Vec<Coord> = Vec::new();
+        let mut chunk_load_coords: Vec<Coord> = Vec::new();
+        let mut chunk_update_coords: Vec<Coord> = Vec::new();
         let origin =
             protocol::chunk::get_chunk_coords(&[pos[0] as i64, pos[1] as i64, pos[2] as i64]).0;
 
@@ -53,28 +60,37 @@ impl ChunkLoader {
                     for z in origin[2] - offset..=origin[2] + offset {
                         let coord = [x, y, z];
                         if protocol::calculate_chunk_distance(&origin, &coord) < offset {
-                            chunk_coords.push(coord);
-                        } 
+                            if !self.chunks.contains(&coord) {
+                                self.chunks.insert(coord);
+                                chunk_load_coords.push(coord);
+                                chunk_update_coords.push(coord);
+                            } else {
+                                chunk_update_coords.push(coord);
+                            }
+                        }
                     }
                 }
             }
         }
-        if !chunk_coords.is_empty() {
-            chunk_coords
+        if !chunk_load_coords.is_empty() || !chunk_update_coords.is_empty() {
+            chunk_load_coords
+                .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
+            chunk_update_coords
                 .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
 
-            self.chunk_handle.request_chunks(chunk_coords, token, self.chunk_sender.clone());
+            self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_sender.clone(), self.chunk_update_sender.clone(), token);
         }
 
         // INFO: ONLY ONE CHUNKUPDATE PER CYCLE
-        for _ in 0..25 {
-            if let Some(chunk) = self.chunk_receiver.try_recv() {
-                let _ = self
-                    .tcp_sender
-                    .send(Event::ServerToClient(ServerToClient::ChunkUpdate(chunk)));
-            } else {
-                break
-            }
+        if let Some(chunk) = self.chunk_load_receiver.try_recv() {
+            let _ = self
+                .tcp_sender
+                .send(Event::ServerToClient(ServerToClient::ChunkLoad(chunk)));
+        } 
+        if let Some(chunk) = self.chunk_update_receiver.try_recv() {
+            let _ = self
+                .tcp_sender
+                .send(Event::ServerToClient(ServerToClient::ChunkUpdate(chunk)));
         }
     }
 }

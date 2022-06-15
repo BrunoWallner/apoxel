@@ -3,6 +3,7 @@ use crate::error::ClientError;
 use serde::{Serialize, Deserialize};
 use super::chunk::Structure;
 use super::chunk::Chunk;
+use super::chunk::ChunkDelta;
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -18,7 +19,8 @@ pub enum ClientToServer {
 pub enum ServerToClient {
     Error(ClientError),
     Token(Token),
-    ChunkUpdate(Chunk),
+    ChunkLoad(Chunk),
+    ChunkUpdate(ChunkDelta),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -2,7 +2,7 @@ mod noise;
 mod structures;
 mod terrain;
 
-use protocol::chunk::Block;
+use protocol::blocks::Block;
 use protocol::chunk::CHUNK_SIZE;
 use protocol::chunk::{Chunk, SuperChunk};
 
@@ -90,14 +90,12 @@ pub fn generate(chunk: Chunk, seed: u32) -> SuperChunk {
                     chunks.place_structure(&structures::TREE, [global_x, height - 5, global_z]);
                 }
                 // stones
-                let stone =
-                    noise.get([global_x as f64, global_z as f64], 0.12, 1, 100.0) > 0.53;
+                let stone = noise.get([global_x as f64, global_z as f64], 0.12, 1, 100.0) > 0.53;
                 if stone {
                     chunks.place_structure(&structures::STONE, [global_x, height - 2, global_z]);
                 }
                 // house
-                let house =
-                    noise.get([global_x as f64, global_z as f64], 0.12, 1, 150.0) > 0.54;
+                let house = noise.get([global_x as f64, global_z as f64], 0.12, 1, 150.0) > 0.54;
                 if house && height > WATER_LEVEL {
                     chunks.place_structure(&structures::HOUSE, [global_x, height - 7, global_z]);
                 }

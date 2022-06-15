@@ -7,8 +7,8 @@ use crate::users::Users;
 use protocol::error::ClientError;
 use protocol::event::{Event, ServerToClient};
 use protocol::reader::Reader;
-use protocol::Token;
 use protocol::Coord;
+use protocol::Token;
 use std::net::SocketAddr;
 use tokio::net::tcp::OwnedReadHalf;
 
@@ -29,10 +29,7 @@ pub async fn init(
     let mut user_token: Option<Token> = None; // for loggin off in case of unexpected disonnection
     let mut user_name: Option<String> = None;
 
-    let mut chunk_loader = chunk_loader::ChunkLoader::new(
-        chunk_handle,
-        sender.clone(),
-    );
+    let mut chunk_loader = chunk_loader::ChunkLoader::new(chunk_handle, sender.clone());
 
     while let Ok(event) = reader.get_event().await {
         match event {

@@ -1,4 +1,4 @@
-use protocol::chunk::Block;
+use protocol::blocks::Block;
 use protocol::chunk::Structure;
 
 use std::fs;
