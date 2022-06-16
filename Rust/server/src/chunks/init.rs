@@ -40,6 +40,7 @@ fn send_chunk_to_requester(
         if load_coords.contains(&chunk.coord) && !disallow_loading {
             // if true client disconnected
             if load_sender.send(chunk.clone()).is_err() {
+                log::info!("removed chunk sender");
                 requests.remove(token);
                 continue;
             }
@@ -49,6 +50,7 @@ fn send_chunk_to_requester(
         if let Some(pre_chunk) = pre_chunk {
             if update_coords.contains(&chunk.coord) {
                 if update_sender.send(pre_chunk.chunk.get_delta(&chunk)).is_err() {
+                    log::info!("removed chunk sender");
                     requests.remove(token);
                     continue;
                 }
@@ -61,7 +63,7 @@ fn send_chunk_to_requester(
 // INFO: leftover do get leaked and not unspawned if they get generated outside of view of client
 pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) {
     thread::spawn(move || {
-        let threadpool = threadpool::ThreadPool::new(2);
+        let threadpool = threadpool::ThreadPool::new(4);
 
         let mut chunk_queque: BTreeSet<Coord> = BTreeSet::default();
         let mut chunks: BTreeMap<Coord, StoredChunk> = BTreeMap::default();
@@ -124,7 +126,7 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                             let pre_chunk = stored_chunk.clone();
                             let left = leftover.remove(&coord).unwrap();
                             stored_chunk.chunk.merge(&left.chunk);
-                            send_chunk_to_requester(Some(&pre_chunk), &stored_chunk.chunk, &mut requests, false);
+                            send_chunk_to_requester(Some(&pre_chunk), &stored_chunk.chunk, &mut requests, false); // might set to true
                         } else {
                             // send leftover to client
                             send_chunk_to_requester(Some(&StoredChunk::new(Chunk::new(coord))), &left, &mut requests, true);
@@ -161,11 +163,12 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                                 chunk_handle.push_super_chunk(super_chunk, token);
                             });
                         } else {
-                            let chunk = chunks.get_mut(&coord).unwrap();
-                            if let Some(left) = leftover.get(&coord) {
-                                chunk.chunk.merge(&left.chunk);
+                            if let Some(chunk) = chunks.get_mut(&coord) {
+                                if let Some(left) = leftover.get(&coord) {
+                                    chunk.chunk.merge(&left.chunk);
+                                }
+                                let _ = load_sender.send(chunk.chunk.clone()).unwrap();
                             }
-                            let _ = load_sender.send(chunk.chunk.clone());
                         }
                     }
                 }

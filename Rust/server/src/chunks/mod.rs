@@ -85,18 +85,21 @@ impl ChunkHandle {
     pub fn unload_chunks(&self, coords: Vec<Coord>, token: Token) {
         let _ = self
             .sender
-            .send(Instruction::RequestUnloadChunk { coords, token });
+            .send(Instruction::RequestUnloadChunk { coords, token })
+            .unwrap();
     }
 
     pub fn place_structure(&self, coord: Coord, structure: Structure, token: Token) {
         let _ = self
             .sender
-            .send(Instruction::PlaceStructure { coord, structure, token });
+            .send(Instruction::PlaceStructure { coord, structure, token })
+            .unwrap();
     }
 
     pub(crate) fn push_super_chunk(&self, super_chunk: SuperChunk, token: Token) {
         let _ = self
             .sender
-            .send(Instruction::PushSuperChunk { super_chunk, token });
+            .send(Instruction::PushSuperChunk { super_chunk, token })
+            .unwrap();
     }
 }

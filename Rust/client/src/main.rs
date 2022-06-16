@@ -23,9 +23,12 @@ impl Chunks {
     }
 }
 
+struct Tick(u64);
+
 fn main() {
     App::new()
         .insert_resource(Chunks::new())
+        .insert_resource(Tick(0))
         .add_plugins(DefaultPlugins)
         .add_plugin(communication::plugin::CommunicationPlugin)
         .add_plugin(MaterialPlugin::<ChunkMaterial>::default())
@@ -39,17 +42,21 @@ fn update_player(
     player: Query<(&Transform, &player::Player)>,
     communicator: Res<Communicator>,
     input: Res<Input<KeyCode>>,
+    mut tick: ResMut<Tick>,
 ) {
     for (transform, _) in player.iter().next() {
-        let pos = transform.translation;
-        let coord = [pos.x as f64, pos.y as f64, pos.z as f64];
-        communicator.send_event(Move{coord});
-
-        if input.pressed(KeyCode::P) {
-            let mut structure = Structure::new([1, 1, 1]);
-            structure.place([0, 0, 0], Block::Water);
-            let coord = [pos.x as i64, pos.y as i64 - 8, pos.z as i64];
-            communicator.send_event(PlaceStructure{coord, structure});
+        tick.0 += 1;
+        if tick.0 % 1 == 0 {
+            let pos = transform.translation;
+            let coord = [pos.x as f64, pos.y as f64, pos.z as f64];
+            communicator.send_event(Move{coord});
+    
+            if input.pressed(KeyCode::P) {
+                let mut structure = Structure::new([1, 1, 1]);
+                structure.place([0, 0, 0], Block::Water);
+                let coord = [pos.x as i64, pos.y as i64 - 8, pos.z as i64];
+                communicator.send_event(PlaceStructure{coord, structure});
+            }
         }
     }
 }

@@ -31,6 +31,7 @@ pub async fn init(
     let mut chunk_loader = chunk_loader::ChunkLoader::new(chunk_handle.clone(), sender.clone());
 
     while let Ok(event) = reader.get_event().await {
+        // log::info!("read: {} MB", reader.bytes_read() as f64 / 1_000_000.0);
         match event {
             Event::ClientToServer(event) => {
                 use protocol::event::ClientToServer::*;
@@ -125,5 +126,6 @@ pub async fn init(
     // USER DISCONNECTION HANDLING
     if let Some(token) = user_token {
         users.logoff(token);
+        chunk_loader.unload_all_chunks(token);
     }
 }

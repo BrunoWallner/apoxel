@@ -1,19 +1,25 @@
 use tokio::io::{self, AsyncWrite, AsyncWriteExt};
 use std::marker::Unpin;
-
+use crate::TCP_EVENT_BYTES;
 use crate::event::Event;
+
+static mut WRITTEN: u64 = 0;
 
 pub struct Writer<T: AsyncWrite + Unpin> {
     socket: T,
+    bytes_written: u128, // overkill
 }
 impl<T: AsyncWrite + Unpin> Writer<T> {
     pub fn new(socket: T) -> Self {
         Self {
             socket,
+            bytes_written: 0,
         }
     }
 
     pub async fn write(&mut self, buffer: &[u8]) -> io::Result<()> {
+        unsafe {WRITTEN += 1}
+        // unsafe {log::info!("written: {} MB", WRITTEN as f64 / 1000000.0)}
         self.socket.write_all(buffer).await?;
         Ok(())
     }
@@ -23,14 +29,19 @@ impl<T: AsyncWrite + Unpin> Writer<T> {
         let bytes = byte_vector(&encoded);
         for bytes in bytes {
             self.write(&bytes).await?;
+            self.bytes_written += TCP_EVENT_BYTES as u128;
         }
 
         Ok(())
     }
+
+    pub fn bytes_written(&self) -> u128 {
+        self.bytes_written
+    }
 }
 
 fn byte_vector(bytes: &[u8]) -> Vec<Vec<u8>> {
-    let buffer_size = 255 - 2; // because of first byte that carries extra info
+    let buffer_size = TCP_EVENT_BYTES - 2; // because of first byte that carries extra info
 
     let mut buffer: Vec<Vec<u8>> = Vec::new();
 

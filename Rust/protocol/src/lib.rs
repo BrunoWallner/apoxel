@@ -5,6 +5,8 @@ pub mod event;
 pub mod chunk;
 pub mod blocks;
 
+const TCP_EVENT_BYTES: usize = 255;
+
 pub type Token = [u8; 16];
 pub type Coord = [i64; 3];
 pub type PlayerCoord = [f64; 3];

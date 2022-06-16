@@ -29,8 +29,8 @@ impl Communicator {
                 let mut reader = Reader::new(read);
                 let mut writer = Writer::new(write);
 
-                let (ev_sender_tx, ev_sender_rx): (Sender<Box<ClientToServer>>, Receiver<Box<ClientToServer>>) = channel();
-                let (ev_receiver_tx, ev_receiver_rx) = channel();
+                let (ev_sender_tx, ev_sender_rx): (Sender<Box<ClientToServer>>, Receiver<Box<ClientToServer>>) = bounded_channel(16);
+                let (ev_receiver_tx, ev_receiver_rx) = bounded_channel(16);
 
                 // INFO: tokio::spawn might be invalid in this context, but should be fine
                 // rx

@@ -10,7 +10,6 @@ use log::*;
 use anyhow::Result;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 pub use config::CONFIG;
-use crate::channel::*;
 
 #[macro_use]
 extern crate lazy_static;
@@ -19,8 +18,8 @@ extern crate lazy_static;
 async fn main() -> Result<()> {
     logger::setup().unwrap();
     
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), CONFIG.connection.port);
-    let tcp = tcp::Tcp::init("0.0.0.0:8000").await?;
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), CONFIG.connection.port);
+    let tcp = tcp::Tcp::init(addr).await?;
     info!("server is listening on {}", addr);
 
     let users = users::Users::init();

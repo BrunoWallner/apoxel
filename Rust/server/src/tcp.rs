@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use tokio::io;
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::{TcpStream, TcpListener, ToSocketAddrs};
-use crate::channel;
+use crate::channel::*;
 use protocol::event::Event;
 use protocol::{reader, writer};
 
@@ -17,7 +17,7 @@ impl Tcp {
     }
 
     // blockingly accept new client
-    pub async fn accept(&self) -> io::Result<((reader::Reader<OwnedReadHalf>, channel::Sender<Event>), SocketAddr)> {
+    pub async fn accept(&self) -> io::Result<((reader::Reader<OwnedReadHalf>, Sender<Event>), SocketAddr)> {
         let (stream, addr) = self.listener.accept().await?;
 
         let (r, w) = TcpStream::into_split(stream);
@@ -25,11 +25,13 @@ impl Tcp {
         let mut writer = writer::Writer::new(w);
 
         // INFO: channel has to be bounded, otherwise tokio's stack will overflow in debug mode
-        let (sender, receiver): (channel::Sender<Event>, channel::Receiver<Event>) = channel::bounded_channel(1024);
+        let (sender, receiver): (Sender<Event>, Receiver<Event>) = channel();
         tokio::spawn(async move {
+            // WARN: I THINK THE RANDOM UNRECOVERABLE HANG UPS ARE CAUSED BY ANY OF THIS
             while let Some(event) = receiver.recv() {
-                let _ = writer.send_event(&event).await;
+                writer.send_event(&event).await.unwrap();
             }
+            log::warn!("server tcp receiver shut down");
         });
 
         Ok(((reader, sender), addr))
