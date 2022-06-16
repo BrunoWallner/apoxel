@@ -2,6 +2,7 @@ use super::generation::generate;
 use super::Instruction;
 use super::StoredChunk;
 use crate::channel::*;
+use crate::queque::Queque;
 use crate::CONFIG;
 use protocol::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -17,11 +18,12 @@ fn send_chunk_to_requester(
         (
             BTreeSet<Coord>,
             BTreeSet<Coord>,
-            Sender<Chunk>,
-            Sender<ChunkDelta>,
+            Queque<Chunk>,
+            Queque<ChunkDelta>,
         ),
     >,
     disallow_loading: bool,
+    important: bool,
 ) {
     // INFO: BLOCK BREAKING MUST USE AIR INSTEAD OF NONE
     // otherwise this will block chunk-updates
@@ -39,7 +41,7 @@ fn send_chunk_to_requester(
     {
         if load_coords.contains(&chunk.coord) && !disallow_loading {
             // if true client disconnected
-            if load_sender.send(chunk.clone()).is_err() {
+            if load_sender.send(chunk.clone(), important).is_err() {
                 log::info!("removed chunk sender");
                 requests.remove(token);
                 continue;
@@ -49,7 +51,7 @@ fn send_chunk_to_requester(
         }
         if let Some(pre_chunk) = pre_chunk {
             if update_coords.contains(&chunk.coord) {
-                if update_sender.send(pre_chunk.chunk.get_delta(&chunk)).is_err() {
+                if update_sender.send(pre_chunk.chunk.get_delta(&chunk), important).is_err() {
                     log::info!("removed chunk sender");
                     requests.remove(token);
                     continue;
@@ -74,8 +76,8 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
             (
                 BTreeSet<Coord>,
                 BTreeSet<Coord>,
-                Sender<Chunk>,
-                Sender<ChunkDelta>,
+                Queque<Chunk>,
+                Queque<ChunkDelta>,
             ),
         > = HashMap::default();
 
@@ -85,6 +87,7 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                 PushSuperChunk {
                     mut super_chunk,
                     token,
+                    important,
                 } => {
                     /* --- PHASE 1 --- */
                     // extract main_chunk and merge it with leftover
@@ -100,7 +103,7 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                     /* --- PHASE 2 --- */
                     // push main_chunk to chunks and mark it as needed
                     if !main_chunk.is_empty() {
-                        send_chunk_to_requester(None, &main_chunk, &mut requests, false);
+                        send_chunk_to_requester(None, &main_chunk, &mut requests, false, important);
                         let mc_coord = main_chunk.coord;
                         let mut stored_chunk = StoredChunk::new(main_chunk);
                         stored_chunk.mark_needed_by(token);
@@ -126,10 +129,10 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                             let pre_chunk = stored_chunk.clone();
                             let left = leftover.remove(&coord).unwrap();
                             stored_chunk.chunk.merge(&left.chunk);
-                            send_chunk_to_requester(Some(&pre_chunk), &stored_chunk.chunk, &mut requests, false); // might set to true
+                            send_chunk_to_requester(Some(&pre_chunk), &stored_chunk.chunk, &mut requests, false, important);
                         } else {
                             // send leftover to client
-                            send_chunk_to_requester(Some(&StoredChunk::new(Chunk::new(coord))), &left, &mut requests, true);
+                            send_chunk_to_requester(Some(&StoredChunk::new(Chunk::new(coord))), &left, &mut requests, true, important);
                         }
                     }
                 }
@@ -160,14 +163,14 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                             let chunk_handle = chunk_handle.clone();
                             threadpool.execute(move || {
                                 let super_chunk = generate(Chunk::new(coord), CONFIG.chunks.seed);
-                                chunk_handle.push_super_chunk(super_chunk, token);
+                                chunk_handle.push_super_chunk(super_chunk, token, false);
                             });
                         } else {
                             if let Some(chunk) = chunks.get_mut(&coord) {
                                 if let Some(left) = leftover.get(&coord) {
                                     chunk.chunk.merge(&left.chunk);
                                 }
-                                let _ = load_sender.send(chunk.chunk.clone()).unwrap();
+                                let _ = load_sender.send(chunk.chunk.clone(), false).unwrap();
                             }
                         }
                     }
@@ -194,7 +197,7 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
                 Instruction::PlaceStructure { coord, structure, token } => {
                     let mut super_chunk = SuperChunk::new(Chunk::new(coord));
                     super_chunk.place_structure(&structure, coord);
-                    chunk_handle.push_super_chunk(super_chunk, token);
+                    chunk_handle.push_super_chunk(super_chunk, token, true);
                 }
             }
         }

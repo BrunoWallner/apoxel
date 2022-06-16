@@ -31,7 +31,6 @@ impl Tcp {
             while let Some(event) = receiver.recv() {
                 writer.send_event(&event).await.unwrap();
             }
-            log::warn!("server tcp receiver shut down");
         });
 
         Ok(((reader, sender), addr))

@@ -2,6 +2,7 @@ mod generation;
 mod init;
 
 use crate::channel::*;
+use crate::queque::Queque;
 use protocol::prelude::*;
 use std::collections::HashSet;
 
@@ -34,8 +35,8 @@ enum Instruction {
         load_coords: Vec<Coord>,
         update_coords: Vec<Coord>,
         token: Token,
-        load_sender: Sender<Chunk>,
-        update_sender: Sender<ChunkDelta>,
+        load_sender: Queque<Chunk>,
+        update_sender: Queque<ChunkDelta>,
     },
     RequestUnloadChunk {
         coords: Vec<Coord>,
@@ -44,6 +45,7 @@ enum Instruction {
     PushSuperChunk {
         super_chunk: SuperChunk,
         token: Token,
+        important: bool,
     },
     PlaceStructure {
         coord: Coord,
@@ -69,8 +71,8 @@ impl ChunkHandle {
         &self,
         load_coords: Vec<Coord>,
         update_coords: Vec<Coord>,
-        load_sender: Sender<Chunk>,
-        update_sender: Sender<ChunkDelta>,
+        load_sender: Queque<Chunk>,
+        update_sender: Queque<ChunkDelta>,
         token: Token,
     ) {
         let _ = self.sender.send(Instruction::RequestChunks {
@@ -96,10 +98,10 @@ impl ChunkHandle {
             .unwrap();
     }
 
-    pub(crate) fn push_super_chunk(&self, super_chunk: SuperChunk, token: Token) {
+    pub(crate) fn push_super_chunk(&self, super_chunk: SuperChunk, token: Token, important: bool) {
         let _ = self
             .sender
-            .send(Instruction::PushSuperChunk { super_chunk, token })
+            .send(Instruction::PushSuperChunk { super_chunk, token, important })
             .unwrap();
     }
 }

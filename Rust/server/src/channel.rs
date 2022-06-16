@@ -2,7 +2,6 @@
 // should be more perfomant than `Arc<Mutex<T>>`
 
 use crossbeam::channel;
-use crossbeam::channel::SendError;
 
 #[derive(Debug, Clone)]
 pub struct Receiver<T> {
@@ -24,8 +23,11 @@ pub struct Sender<T> {
     inner: channel::Sender<T>,
 }
 impl<T> Sender<T> {
-    pub fn send(&self, data: T) -> Result<(), SendError<T>> {
-        self.inner.send(data)
+    pub fn send(&self, data: T) -> Result<(), ()> {
+        match self.inner.send(data) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(())
+        }
     }
 }
 

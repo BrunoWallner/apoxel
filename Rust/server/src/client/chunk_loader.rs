@@ -8,31 +8,28 @@ use protocol::Token;
 use protocol::prelude::ChunkDelta;
 use protocol::{Coord, PlayerCoord};
 use std::collections::BTreeSet;
+use crate::queque::Queque;
 
 pub(super) struct ChunkLoader {
     chunk_handle: ChunkHandle,
     tcp_sender: Sender<Event>,
     last_load_pos: PlayerCoord,
-    chunk_load_receiver: Receiver<Chunk>,
-    chunk_load_sender: Sender<Chunk>,
-    chunk_update_receiver: Receiver<ChunkDelta>,
-    chunk_update_sender: Sender<ChunkDelta>,
+    chunk_load_queque: Queque<Chunk>,
+    chunk_update_queque: Queque<ChunkDelta>,
     chunks: BTreeSet<Coord>,
     leftover: BTreeSet<Coord>,
 }
 impl ChunkLoader {
     pub fn new(chunk_handle: ChunkHandle, tcp_sender: Sender<Event>) -> Self {
         let last_load_pos = [0.0, 0.0, 0.0];
-        let (chunk_load_sender, chunk_load_receiver) = channel();
-        let (chunk_update_sender, chunk_update_receiver) = channel();
+        let chunk_load_queque = Queque::new();
+        let chunk_update_queque = Queque::new();
         ChunkLoader {
             chunk_handle,
             tcp_sender,
             last_load_pos,
-            chunk_load_sender,
-            chunk_load_receiver,
-            chunk_update_sender,
-            chunk_update_receiver,
+            chunk_load_queque,
+            chunk_update_queque,
             chunks: BTreeSet::default(),
             leftover: BTreeSet::default(),
         }
@@ -104,23 +101,35 @@ impl ChunkLoader {
                 chunk_update_coords
                     .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
 
-                self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_sender.clone(), self.chunk_update_sender.clone(), token);
+                self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_queque.clone(), self.chunk_update_queque.clone(), token);
             }
         }
 
         // Receiving and sending to client
         let mut chunk_loads: Vec<Chunk> = Vec::new();
         let mut chunk_updates: Vec<ChunkDelta> = Vec::new();
-        while let Some(chunk) = self.chunk_load_receiver.try_recv() {
+        // chunk load
+        let mut sent = 0;
+        while let Some(chunk) = self.chunk_load_queque.try_recv() {
             if protocol::calculate_chunk_distance(&origin, &chunk.coord) < CONFIG.chunks.render_distance as i64 {
                 self.chunks.insert(chunk.coord);
                 chunk_loads.push(chunk);
+                sent += 1;
+                if sent > CONFIG.chunks.chunks_per_cycle / 2 {
+                    break;
+                }
             }
         }
-        while let Some(chunk) = self.chunk_update_receiver.try_recv() {
+        // chunk update
+        let mut sent = 0;
+        while let Some(chunk) = self.chunk_update_queque.try_recv() {
             if protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
                 self.leftover.insert(chunk.0);
                 chunk_updates.push(chunk);
+                sent += 1;
+                if sent > CONFIG.chunks.chunks_per_cycle / 2 {
+                    break;
+                }
             }
         }
 

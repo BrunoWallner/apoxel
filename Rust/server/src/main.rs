@@ -5,6 +5,7 @@ mod logger;
 mod channel;
 mod tcp;
 mod config;
+mod queque;
 
 use log::*;
 use anyhow::Result;
