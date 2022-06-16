@@ -119,6 +119,7 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
 
                         // when generated chunk is found at leftover coord merge it with leftover
                         if let Some(stored_chunk) = chunks.get_mut(&coord) {
+                            stored_chunk.mark_needed_by(token);
                             // guaranteed not to panic because of above code
                             let pre_chunk = stored_chunk.clone();
                             let left = leftover.remove(&coord).unwrap();
