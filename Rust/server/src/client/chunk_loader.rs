@@ -51,7 +51,7 @@ impl ChunkLoader {
         /* --- UNLOAD --- */
         let mut to_unload: Vec<Coord> = Vec::new();
         for chunk in self.chunks.clone().into_iter() {
-            if protocol::calculate_chunk_distance(&chunk, &origin) > CONFIG.chunks.render_distance as i64 {
+            if protocol::calculate_chunk_distance(&chunk, &origin) > CONFIG.chunks.render_distance as i64 + 1 {
                 self.chunks.remove(&chunk);
                 to_unload.push(chunk);
             }
@@ -100,12 +100,18 @@ impl ChunkLoader {
         // Receiving and sending to client
         let mut chunk_loads: Vec<Chunk> = Vec::new();
         let mut chunk_updates: Vec<ChunkDelta> = Vec::new();
-        for _ in 0..10 {
+        for _ in 0..20 {
             if let Some(chunk) = self.chunk_load_receiver.try_recv() {
-                chunk_loads.push(chunk);
-            } 
+                self.chunks.insert(chunk.coord);
+                if protocol::calculate_chunk_distance(&origin, &chunk.coord) < CONFIG.chunks.render_distance as i64 + 1 {
+                    chunk_loads.push(chunk);
+                }
+            }
             if let Some(chunk) = self.chunk_update_receiver.try_recv() {
-                chunk_updates.push(chunk)
+                self.chunks.insert(chunk.0);
+                if protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 + 1 {
+                    chunk_updates.push(chunk);
+                }
             }
         }
 
@@ -119,7 +125,6 @@ impl ChunkLoader {
                 .tcp_sender
                 .send(Event::ServerToClient(ServerToClient::ChunkUpdates(chunk_updates)));
         }
-
     }
 }
 

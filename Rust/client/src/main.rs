@@ -60,7 +60,6 @@ fn handle_events(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ChunkMaterial>>,
     mut chunks: ResMut<Chunks>,
-
 ) {
     if let Some(event) = communicator.try_get_event() {
         match event {
