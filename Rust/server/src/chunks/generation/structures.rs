@@ -13,8 +13,6 @@ lazy_static! {
 fn load_struct(path: &str) -> Structure {
     let path = String::from("./models/") + path;
 
-    log::info!("path: {}", path);
-
     let mut file = fs::File::open(path.clone()).unwrap();
 
     let mut buffer: Vec<u8> = Vec::new();

@@ -12,6 +12,8 @@ use communication::Communicator;
 use chunks::chunk_material::ChunkMaterial;
 use std::collections::BTreeMap;
 
+use bevy_mod_picking::*;
+
 struct Chunks {
     pub map: BTreeMap<Coord, (Entity, Chunk)>
 }
@@ -30,13 +32,30 @@ fn main() {
         .insert_resource(Chunks::new())
         .insert_resource(Tick(0))
         .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPickingPlugins)
         .add_plugin(communication::plugin::CommunicationPlugin)
         .add_plugin(MaterialPlugin::<ChunkMaterial>::default())
         .add_plugin(player::PlayerPlugin)
         .add_system(handle_events)
         .add_system(update_player)
+        // .add_system(block_placing)
         .run();
 }
+
+// fn block_placing(
+//     mut cmds: Commands,
+//     mut events: EventReader<PickingEvent>,
+//     communicator: Res<Communicator>,
+// ) {
+//     for event in events.iter() {
+//         match event {
+//             PickingEvent::Clicked(entity) => {
+//                 cmds.entity(*entity).
+//             }
+//             _ => ()
+//         }
+//     }
+// }
 
 fn update_player(
     player: Query<(&Transform, &player::Player)>,
@@ -52,8 +71,17 @@ fn update_player(
             communicator.send_event(Move{coord});
     
             if input.pressed(KeyCode::P) {
-                let mut structure = Structure::new([1, 1, 1]);
-                structure.place([0, 0, 0], Block::Water);
+                let mut structure = Structure::new([10, 10, 10]);
+                for x in 0..10 {
+                    for y in 0..10 {
+                        for z in 0..10 {
+                            let coord = [x, y, z];
+                            if protocol::calculate_chunk_distance(&coord, &[5, 5, 5]) < 5 {
+                                structure.place([x as usize, y as usize, z as usize], Block::Air);
+                            }
+                        }
+                    }
+                }
                 let coord = [pos.x as i64, pos.y as i64 - 8, pos.z as i64];
                 communicator.send_event(PlaceStructure{coord, structure});
             }
@@ -87,7 +115,9 @@ fn handle_events(
                         ),
                         material: materials.add(ChunkMaterial{}),
                         ..default()
-                    }).id();
+                    })
+                    .insert_bundle(PickableBundle::default())
+                    .id();
                     chunks.map.insert(chunk.coord, (entity, chunk.clone()));
                 }
             }
@@ -108,8 +138,9 @@ fn handle_events(
                             ),
                             material: materials.add(ChunkMaterial{}),
                             ..default()
-                        }).id();
-    
+                        })                    
+                        .insert_bundle(PickableBundle::default())
+                        .id();
                         *entity = new_entity;
                     } else {
                         let mut chunk = Chunk::new(delta.0);
@@ -126,7 +157,9 @@ fn handle_events(
                             ),
                             material: materials.add(ChunkMaterial{}),
                             ..default()
-                        }).id();
+                        })
+                        .insert_bundle(PickableBundle::default())
+                        .id();
     
                         chunks.map.insert(delta.0, (new_entity, chunk));
                     }

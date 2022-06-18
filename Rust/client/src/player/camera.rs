@@ -34,8 +34,8 @@ pub struct FlyCamera {
 impl Default for FlyCamera {
 	fn default() -> Self {
 		Self {
-			accel: 3.0,
-			max_speed: 1.5,
+			accel: 2.0,
+			max_speed: 1.0,
 			sensitivity: 1.0,
 			friction: 1.0,
 			pitch: 1.0,

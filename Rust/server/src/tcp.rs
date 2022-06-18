@@ -29,6 +29,9 @@ impl Tcp {
         tokio::spawn(async move {
             // WARN: I THINK THE RANDOM UNRECOVERABLE HANG UPS ARE CAUSED BY ANY OF THIS
             while let Some(event) = receiver.recv() {
+                let ev = &format!("{:?}", event);
+                let has_len = ev.len() > 50;
+                log::info!("sent event: {}", if has_len {&ev[0..50]} else {ev});
                 writer.send_event(&event).await.unwrap();
             }
         });

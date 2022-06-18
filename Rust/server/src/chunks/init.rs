@@ -51,10 +51,13 @@ fn send_chunk_to_requester(
         }
         if let Some(pre_chunk) = pre_chunk {
             if update_coords.contains(&chunk.coord) {
-                if update_sender.send(pre_chunk.chunk.get_delta(&chunk), important).is_err() {
-                    log::info!("removed chunk sender");
-                    requests.remove(token);
-                    continue;
+                let delta = pre_chunk.chunk.get_delta(&chunk);
+                if !delta.1.is_empty() {
+                    if update_sender.send(delta, important).is_err() {
+                        log::info!("removed chunk sender");
+                        requests.remove(token);
+                        continue;
+                    }
                 }
             }
         }

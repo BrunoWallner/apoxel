@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use super::camera::{FlyCamera, FlyCameraPlugin};
+use bevy_mod_picking::*;
 
 #[derive(Component)]
 pub struct Light;
@@ -22,14 +23,15 @@ fn spawn_player(
 ) {
     commands.spawn_bundle(Camera3dBundle {
         projection: bevy::render::camera::Projection::Perspective(PerspectiveProjection{
-            fov: 85.0 / 90.0,
+            fov: 1.0,
             ..default()
         }),
         transform: Transform::from_xyz(0.0, 100.0, 0.0).looking_at(Vec3::Z, Vec3::Y),
         ..default()
     })
     .insert(Player::new())
-    .insert(FlyCamera::default());
+    .insert(FlyCamera::default())
+    .insert_bundle(PickingCameraBundle::default());
 
     commands.spawn_bundle(PointLightBundle {
         point_light: PointLight {
