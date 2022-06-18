@@ -96,7 +96,7 @@ fn handle_events(
     mut materials: ResMut<Assets<ChunkMaterial>>,
     mut chunks: ResMut<Chunks>,
 ) {
-    while let Some(event) = communicator.try_get_event() {
+    if let Some(event) = communicator.try_get_event() {
         match event {
             ChunkLoads (mut chunkloads) => {
                 for chunk in chunkloads.iter_mut() {

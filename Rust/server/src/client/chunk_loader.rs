@@ -1,4 +1,3 @@
-use crate::channel::*;
 use crate::chunks::ChunkHandle;
 use crate::CONFIG;
 use protocol::chunk::Chunk;
@@ -12,7 +11,7 @@ use crate::queque::Queque;
 
 pub(super) struct ChunkLoader {
     chunk_handle: ChunkHandle,
-    tcp_sender: Sender<Event>,
+    tcp_writer: Queque<ServerToClient>,
     last_load_pos: PlayerCoord,
     chunk_load_queque: Queque<Chunk>,
     chunk_update_queque: Queque<ChunkDelta>,
@@ -20,13 +19,13 @@ pub(super) struct ChunkLoader {
     leftover: BTreeSet<Coord>,
 }
 impl ChunkLoader {
-    pub fn new(chunk_handle: ChunkHandle, tcp_sender: Sender<Event>) -> Self {
+    pub fn new(chunk_handle: ChunkHandle, tcp_writer: Queque<ServerToClient>) -> Self {
         let last_load_pos = [0.0, 0.0, 0.0];
         let chunk_load_queque = Queque::new();
         let chunk_update_queque = Queque::new();
         ChunkLoader {
             chunk_handle,
-            tcp_sender,
+            tcp_writer,
             last_load_pos,
             chunk_load_queque,
             chunk_update_queque,
@@ -71,8 +70,8 @@ impl ChunkLoader {
             if !to_unload.is_empty() {
                 self.chunk_handle.unload_chunks(to_unload.clone(), token);
                 self
-                    .tcp_sender
-                    .send(Event::ServerToClient(ServerToClient::ChunkUnloads(to_unload)))
+                    .tcp_writer
+                    .send(ServerToClient::ChunkUnloads(to_unload), false)
                     .unwrap();
             }
 
@@ -134,15 +133,15 @@ impl ChunkLoader {
         }
 
         if !chunk_loads.is_empty() {
-             self
-                .tcp_sender
-                .send(Event::ServerToClient(ServerToClient::ChunkLoads(chunk_loads.clone())))
+            self
+                .tcp_writer
+                .send(ServerToClient::ChunkLoads(chunk_loads.clone()), false)
                 .unwrap();
         }
         if !chunk_updates.is_empty() {
             self
-                .tcp_sender
-                .send(Event::ServerToClient(ServerToClient::ChunkUpdates(chunk_updates.clone())))
+                .tcp_writer
+                .send(ServerToClient::ChunkUpdates(chunk_updates.clone()), false)
                 .unwrap();
         }
     }

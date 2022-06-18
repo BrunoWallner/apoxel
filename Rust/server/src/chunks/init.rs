@@ -68,7 +68,7 @@ fn send_chunk_to_requester(
 // INFO: leftover do get leaked and not unspawned if they get generated outside of view of client
 pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) {
     thread::spawn(move || {
-        let threadpool = threadpool::ThreadPool::new(4);
+        let threadpool = threadpool::ThreadPool::new(1);
 
         let mut chunk_queque: BTreeSet<Coord> = BTreeSet::default();
         let mut chunks: BTreeMap<Coord, StoredChunk> = BTreeMap::default();

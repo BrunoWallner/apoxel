@@ -28,12 +28,12 @@ async fn main() -> Result<()> {
 
     // accepting clients
     loop {
-        if let Ok( (rw, addr)) = tcp.accept().await {
+        if let Ok( ((read_queque, write_queque), addr)) = tcp.accept().await {
             let users = users.clone();
             let chunk_handle = chunk_handle.clone();
 
             tokio::spawn(async move {
-                client::init(rw, addr, users, chunk_handle).await;
+                client::init(read_queque, write_queque, addr, users, chunk_handle).await;
             });
         }
     }

@@ -3,5 +3,5 @@ port = 8000
 
 [chunks]
 render_distance = 8
-chunks_per_cycle = 20
+chunks_per_cycle = 2000000
 seed = 9578239

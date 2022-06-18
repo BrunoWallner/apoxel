@@ -7,7 +7,7 @@ pub struct CommunicationPlugin;
 
 impl Plugin for CommunicationPlugin {
     fn build(&self, app: &mut App) {
-        let mut communicator = Communicator::init("apoxel:8000").unwrap();
+        let mut communicator = Communicator::init("localhost:8000").unwrap();
         communicator.send_event(Register{name: String::from("tsdarststr2")});
 
         // login

@@ -1,10 +1,9 @@
 use std::net::SocketAddr;
 
 use tokio::io;
-use tokio::net::tcp::OwnedReadHalf;
 use tokio::net::{TcpStream, TcpListener, ToSocketAddrs};
-use crate::channel::*;
-use protocol::event::Event;
+use crate::queque::Queque;
+use protocol::event::prelude::*;
 use protocol::{reader, writer};
 
 pub struct Tcp {
@@ -17,25 +16,52 @@ impl Tcp {
     }
 
     // blockingly accept new client
-    pub async fn accept(&self) -> io::Result<((reader::Reader<OwnedReadHalf>, Sender<Event>), SocketAddr)> {
+    pub async fn accept(&self) -> io::Result<((Queque<ClientToServer>, Queque<ServerToClient>), SocketAddr)> {
         let (stream, addr) = self.listener.accept().await?;
 
         let (r, w) = TcpStream::into_split(stream);
-        let reader = reader::Reader::new(r);
+        let mut reader = reader::Reader::new(r);
         let mut writer = writer::Writer::new(w);
 
         // INFO: channel has to be bounded, otherwise tokio's stack will overflow in debug mode
-        let (sender, receiver): (Sender<Event>, Receiver<Event>) = channel();
+        let read_queque: Queque<ClientToServer> = Queque::new();
+        let write_queque: Queque<ServerToClient> = Queque::new();
+
+        // handles write operations to client
+        let w_q = write_queque.clone();
         tokio::spawn(async move {
-            // WARN: I THINK THE RANDOM UNRECOVERABLE HANG UPS ARE CAUSED BY ANY OF THIS
-            while let Some(event) = receiver.recv() {
-                let ev = &format!("{:?}", event);
-                let has_len = ev.len() > 50;
-                log::info!("sent event: {}", if has_len {&ev[0..50]} else {ev});
-                writer.send_event(&event).await.unwrap();
+            // WARN!: THIS BLOCKING READ IS PROBABLY BAD INSIDE ASYNC CONTEXT
+            while let Some(event) = w_q.recv() {
+                writer.send_event(&ServerToClient(event)).await.unwrap();
             }
         });
 
-        Ok(((reader, sender), addr))
+        // handles read operations from client
+        let r_q = read_queque.clone();
+        let w_q = write_queque.clone();
+        tokio::spawn(async move {
+            while let Ok(event) = reader.get_event().await {
+                match event {
+                    ClientToServer(event) => {
+                        // priotarisation
+                        let important = match event {
+                            ClientToServer::PlaceStructure{..} => true,
+                            _ => false
+                        };
+                        if r_q.send(event, important).is_err() {
+                            break
+                        }
+                    }
+                    _ => {
+                        log::warn!("{}, sent an invalid request, terminating connection ...", addr);
+                        let _ = w_q.send(ServerToClient::Error(ClientError::ConnectionReset), true);
+                        break;
+                    }
+                }
+            }
+            log::warn!("arstarsttsagjdr");
+        });
+
+        Ok(((read_queque, write_queque), addr))
     }
 }

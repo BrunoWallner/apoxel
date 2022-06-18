@@ -40,6 +40,6 @@ pub struct Connection {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chunks {
     pub render_distance: u16,
-    pub chunks_per_cycle: u16,
+    pub chunks_per_cycle: u32,
     pub seed: u32,
 }

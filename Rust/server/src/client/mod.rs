@@ -1,15 +1,14 @@
 mod chunk_loader;
 
-use crate::channel::*;
 use crate::chunks::ChunkHandle;
+use crate::queque::Queque;
 use crate::users::UserModInstruction;
 use crate::users::Users;
 use protocol::error::ClientError;
-use protocol::event::{Event, ServerToClient};
-use protocol::reader::Reader;
+use protocol::event::ServerToClient;
+use protocol::event::prelude::*;
 use protocol::Token;
 use std::net::SocketAddr;
-use tokio::net::tcp::OwnedReadHalf;
 
 use log::*;
 
@@ -17,110 +16,90 @@ use log::*;
 // the client part runs in the tokio runtime, to make many simultanious connectins possible
 // all the handles run on seperate os threads, for performance predictability and ease of use reasons
 pub async fn init(
-    rw: (Reader<OwnedReadHalf>, Sender<Event>),
+    reader: Queque<ClientToServer>,
+    writer: Queque<ServerToClient>,
     addr: SocketAddr,
     users: Users,
     chunk_handle: ChunkHandle,
 ) {
-    let mut reader = rw.0;
-    let sender = rw.1;
-
     let mut user_token: Option<Token> = None; // for loggin off in case of unexpected disonnection
     let mut user_name: Option<String> = None;
 
-    let mut chunk_loader = chunk_loader::ChunkLoader::new(chunk_handle.clone(), sender.clone());
+    let mut chunk_loader = chunk_loader::ChunkLoader::new(chunk_handle.clone(), writer.clone());
 
-    while let Ok(event) = reader.get_event().await {
+    while let Some(event) = reader.recv() {
         // log::info!("read: {} MB", reader.bytes_read() as f64 / 1_000_000.0);
+        use protocol::event::ClientToServer::*;
         match event {
-            Event::ClientToServer(event) => {
-                use protocol::event::ClientToServer::*;
-                match event {
-                    Register { name } => {
-                        if let Some(token) = users.register(name.clone()) {
-                            user_token = Some(token);
-                            user_name = Some(name);
-                            sender
-                                .send(Event::ServerToClient(ServerToClient::Token(token)))
-                                .unwrap();
-                        } else {
-                            sender
-                                .send(Event::ServerToClient(ServerToClient::Error(
-                                    ClientError::Register,
-                                )))
-                                .unwrap();
-                        }
-                    }
-                    Login { token } => {
-                        user_token = Some(token);
-
-                        if users.login(token) {
-                            user_token = Some(token);
-                            user_name = match users.get_user(token) {
-                                Some(user) => {
-                                    let name = user.name;
-                                    info!("{} logged in at: {:?}", name, user.pos);
-                                    // set chunkload pos to trigger initial load
-                                    chunk_loader.set_player_pos(user.pos);
-                                    Some(name)
-                                }
-                                None => None,
-                            };
-                        } else {
-                            sender
-                                .send(Event::ServerToClient(ServerToClient::Error(
-                                    ClientError::Login,
-                                )))
-                                .unwrap();
-                        }
-                    }
-                    // also triggers chunkload
-                    Move { coord } => {
-                        if let Some(token) = user_token {
-                            users.mod_user(token, UserModInstruction::Move(coord));
-
-                            // chunk request
-                            chunk_loader.update_position(coord, token);
-                        } else {
-                            warn!(
-                                "[{}][{}]: auth violation detected!",
-                                user_name.unwrap_or_else(|| String::from("")),
-                                addr
-                            );
-                            sender
-                                .send(Event::ServerToClient(ServerToClient::Error(
-                                    ClientError::ConnectionReset,
-                                )))
-                                .unwrap();
-                            break;
-                        }
-                    }
-                    PlaceStructure { coord, structure } => {
-                        if let Some(token) = user_token {
-                            chunk_handle.place_structure(coord, structure, token)
-                        } else {
-                            warn!(
-                                "[{}][{}]: auth violation detected!",
-                                user_name.unwrap_or_else(|| String::from("")),
-                                addr
-                            );
-                            sender
-                                .send(Event::ServerToClient(ServerToClient::Error(
-                                    ClientError::ConnectionReset,
-                                )))
-                                .unwrap();
-                            break;
-                        }
-                    }
-                    Disconnect => break,
+            Register { name } => {
+                if let Some(token) = users.register(name.clone()) {
+                    user_token = Some(token);
+                    user_name = Some(name);
+                    writer
+                        .send(ServerToClient::Token(token), false)
+                        .unwrap();
+                } else {
+                    writer
+                        .send(ServerToClient::Error(ClientError::Register), false)
+                        .unwrap();
                 }
             }
-            Event::ServerToClient(event) => {
-                warn!("{} sent an invalid event: {:?}", addr, event)
+            Login { token } => {
+                user_token = Some(token);
+
+                if users.login(token) {
+                    user_token = Some(token);
+                    user_name = match users.get_user(token) {
+                        Some(user) => {
+                            let name = user.name;
+                            info!("{} logged in at: {:?}", name, user.pos);
+                            // set chunkload pos to trigger initial load
+                            chunk_loader.set_player_pos(user.pos);
+                            Some(name)
+                        }
+                        None => None,
+                    };
+                } else {
+                    writer
+                        .send(ServerToClient::Error(ClientError::Login), false)
+                        .unwrap();
+                }
             }
-            Event::Invalid => {
-                warn!("{} sent an invalid event", addr)
+            // also triggers chunkload
+            Move { coord } => {
+                if let Some(token) = user_token {
+                    users.mod_user(token, UserModInstruction::Move(coord));
+
+                    // chunk request
+                    chunk_loader.update_position(coord, token);
+                } else {
+                    warn!(
+                        "[{}][{}]: auth violation detected!",
+                        user_name.unwrap_or_else(|| String::from("")),
+                        addr
+                    );
+                    writer
+                        .send(ServerToClient::Error(ClientError::ConnectionReset), false)
+                        .unwrap();
+                    break;
+                }
             }
+            PlaceStructure { coord, structure } => {
+                if let Some(token) = user_token {
+                    chunk_handle.place_structure(coord, structure, token)
+                } else {
+                    warn!(
+                        "[{}][{}]: auth violation detected!",
+                        user_name.unwrap_or_else(|| String::from("")),
+                        addr
+                    );
+                    writer
+                        .send(ServerToClient::Error(ClientError::ConnectionReset), false)
+                        .unwrap();
+                    break;
+                }
+            }
+            Disconnect => break,
         }
     }
     // USER DISCONNECTION HANDLING
