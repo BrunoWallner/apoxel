@@ -1,6 +1,6 @@
 use crate::channel::*;
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use crossbeam::channel::select;
 
 #[derive(Debug, Clone)]
 pub struct Queque<T> {
@@ -10,8 +10,6 @@ pub struct Queque<T> {
     // priority 1
     sender_1: Sender<T>,
     receiver_1: Receiver<T>,
-    // channel len
-    len: Arc<Mutex<usize>>,
 }
 impl<T: Debug> Queque<T> {
     pub fn new() -> Self {
@@ -22,72 +20,59 @@ impl<T: Debug> Queque<T> {
             receiver_0,
             sender_1,
             receiver_1,
-            len: Arc::new(Mutex::new(0)),
         }
-    }
-
-    // pub fn send(&self, t: T, _important: bool) -> Result<(), ()> {
-    //     self.sender_0.send(t);
-    //     Ok(())
-    // }
-
-    // pub fn recv(&self) -> Option<T> {
-    //     self.receiver_0.recv()
-    // }
-
-    // pub fn try_recv(&self) -> Option<T> {
-    //     self.receiver_0.try_recv()
-    // }
-
-    fn increase_len(&self) {
-        *self.len.lock().unwrap() += 1;
-    }
-
-    fn decrease_len(&self) {
-        *self.len.lock().unwrap() -= 1;
-    }
-
-    pub fn len(&self) -> usize {
-        *self.len.lock().unwrap()
     }
     
     pub fn send(&self, t: T, important: bool) -> Result<(), ()> {
-        // when all channels are empty the recv() func would block on
-        // non important t's, so sending the important t to the unimportant
-        // channel is better -> looses potential priority info
-        let t = if self.len() == 0 {
-            self.sender_1.send(t)
+        if important {
+            self.sender_0.send(t)
         } else {
-            if important {
-                self.sender_0.send(t)
-            } else {
-                self.sender_1.send(t)
-            }
-        };
-        self.increase_len();
-        t
+            self.sender_1.send(t)
+        }
     }
 
     pub fn recv(&self) -> Option<T> {
-        let t = match self.receiver_0.try_recv() {
+        match self.receiver_0.try_recv() {
             Some(t) => Some(t),
-            None => self.receiver_1.recv()
-        };
-        self.decrease_len();
-        t
+            None => {
+                select! {
+                    recv(self.receiver_0.inner) -> t => t.ok(),
+                    recv(self.receiver_1.inner) -> t => t.ok(),
+                }
+            }
+        }
+    }
+
+    pub fn recv_with_meta(&self) -> Option<(T, bool)> {
+        match self.receiver_0.try_recv() {
+            Some(t) => Some((t, true)),
+            None => {
+                select! {
+                    recv(self.receiver_0.inner) -> t => match t {
+                        Ok(t) => Some((t, true)),
+                        Err(_) => None,
+                    },
+                    recv(self.receiver_1.inner) -> t => match t {
+                        Ok(t) => Some((t, false)),
+                        Err(_) => None,
+                    },
+                }
+            }
+        }
     }
 
     pub fn try_recv(&self) -> Option<T> {
         match self.receiver_0.try_recv() {
-            Some(t) => {
-                self.decrease_len();
-                Some(t)
-            },
+            Some(t) => Some(t),
+            None => self.receiver_1.try_recv()
+        }
+    }
+
+    pub fn try_recv_with_meta(&self) -> Option<(T, bool)> {
+        match self.receiver_0.try_recv() {
+            Some(t) => Some((t, true)),
             None => match self.receiver_1.try_recv() {
-                Some(t) => {
-                    self.decrease_len();
-                    Some(t)
-                },
+                Some(t) => Some((t, false)),
                 None => None
             }
         }

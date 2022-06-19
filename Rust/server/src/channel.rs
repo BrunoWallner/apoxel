@@ -5,7 +5,7 @@ use crossbeam::channel;
 
 #[derive(Debug, Clone)]
 pub struct Receiver<T> {
-    inner: channel::Receiver<T>,
+    pub inner: channel::Receiver<T>,
 }
 impl<T> Receiver<T> {
     pub fn recv(&self) -> Option<T> {
@@ -20,7 +20,7 @@ impl<T> Receiver<T> {
 
 #[derive(Debug, Clone)]
 pub struct Sender<T> {
-    inner: channel::Sender<T>,
+    pub inner: channel::Sender<T>,
 }
 impl<T> Sender<T> {
     pub fn send(&self, data: T) -> Result<(), ()> {

@@ -2,15 +2,16 @@ use tokio::io::{self, AsyncRead, AsyncReadExt};
 use std::marker::Unpin;
 use crate::event::Event;
 use crate::TCP_EVENT_BYTES;
+use tokio::io::BufReader;
 
 pub struct Reader<T: AsyncRead + Unpin> {
-    socket: T,
+    socket: BufReader<T>,
     bytes_read: u128, // overkill
 }
 impl<T: AsyncRead + Unpin> Reader<T> {
     pub fn new(socket: T) -> Self {
         Self {
-            socket,
+            socket: BufReader::new(socket),
             bytes_read: 0,
         }
     }

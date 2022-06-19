@@ -2,17 +2,18 @@ use tokio::io::{self, AsyncWrite, AsyncWriteExt};
 use std::marker::Unpin;
 use crate::TCP_EVENT_BYTES;
 use crate::event::Event;
+use tokio::io::BufWriter;
 
 static mut WRITTEN: u64 = 0;
 
 pub struct Writer<T: AsyncWrite + Unpin> {
-    socket: T,
+    socket: BufWriter<T>,
     bytes_written: u128, // overkill
 }
 impl<T: AsyncWrite + Unpin> Writer<T> {
     pub fn new(socket: T) -> Self {
         Self {
-            socket,
+            socket: BufWriter::new(socket),
             bytes_written: 0,
         }
     }
@@ -31,6 +32,7 @@ impl<T: AsyncWrite + Unpin> Writer<T> {
             self.write(&bytes).await?;
             self.bytes_written += TCP_EVENT_BYTES as u128;
         }
+        self.socket.flush().await?;
 
         Ok(())
     }

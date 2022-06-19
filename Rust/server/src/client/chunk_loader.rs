@@ -121,8 +121,18 @@ impl ChunkLoader {
         }
         // chunk update
         let mut sent = 0;
-        while let Some(chunk) = self.chunk_update_queque.try_recv() {
-            if protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
+        while let Some((chunk, important)) = self.chunk_update_queque.try_recv_with_meta() {
+            if important && protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
+                self.leftover.insert(chunk.0);
+                self
+                .tcp_writer
+                    .send(ServerToClient::ChunkUpdates(vec![chunk]), true)
+                    .unwrap();
+                sent += 1;
+                if sent > CONFIG.chunks.chunks_per_cycle / 2 {
+                    break;
+                } 
+            } else if protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
                 self.leftover.insert(chunk.0);
                 chunk_updates.push(chunk);
                 sent += 1;
