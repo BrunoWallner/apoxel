@@ -3,10 +3,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use super::blocks::Block;
 
+// bounded by `ChunkIndex`
 // currently has to have u8 size limit
 // I just dont want to use `as usize` as much
-pub const CHUNK_SIZE: usize = 32;
-pub type ChunkData = Box<[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>;
+pub const CHUNK_SIZE: usize = 64;
+
+// pub type ChunkData = Box<[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>;
+pub type ChunkData = Vec<Vec<Vec<Block>>>;
+
+
 // to save memory in ChunkDelta
 // if CHUNK_SIZE is bigger than 255 this must be at least 
 pub type ChunkIndex = [u8; 3];
@@ -36,7 +41,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn new(coord: Coord) -> Self {
         Self {
-            data: Box::new([[[Block::None; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]),
+            data: vec![vec![vec![Block::None; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
             coord,
         }
     }

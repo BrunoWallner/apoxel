@@ -14,7 +14,7 @@ use noise::NoiseFn;
 
 // ca. 150 - 1200 µs
 pub fn generate(
-    chunk: Chunk,
+    chunk: &Chunk,
 ) -> Mesh {
     let noise = OpenSimplex::new();
 

@@ -12,4 +12,4 @@ tokio = { version = "1.17.0", features = ["full"] }
 crossbeam = "0.8.1"
 log = "0.4.16"
 noise = "0.7.0"
-bevy_mod_picking = { path = "../../../fork/bevy_mod_picking" }
+threadpool = "1.8.1"
