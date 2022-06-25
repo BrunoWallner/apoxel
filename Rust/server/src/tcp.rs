@@ -2,8 +2,7 @@ use std::net::SocketAddr;
 
 use tokio::io;
 use tokio::net::{TcpStream, TcpListener, ToSocketAddrs};
-use crate::queque::Queque;
-use protocol::event::prelude::*;
+use protocol::prelude::*;
 use protocol::{reader, writer};
 
 pub struct Tcp {
@@ -23,17 +22,17 @@ impl Tcp {
         let mut reader = reader::Reader::new(r);
         let mut writer = writer::Writer::new(w);
 
-        // INFO: channel has to be bounded, otherwise tokio's stack will overflow in debug mode
-        let read_queque: Queque<ClientToServer> = Queque::new();
-        let write_queque: Queque<ServerToClient> = Queque::new();
+        let read_queque: Queque<ClientToServer> = Queque::bounded(64);
+        let mut write_queque: Queque<ServerToClient> = Queque::bounded(64);
 
         // handles write operations to client
         let w_q = write_queque.clone();
         tokio::spawn(async move {
             // WARN!: THIS BLOCKING READ IS PROBABLY BAD INSIDE ASYNC CONTEXT
-            while let Some(event) = w_q.recv() {
+            while let Ok(event) = w_q.recv() {
                 writer.send_event(&ServerToClient(event)).await.unwrap();
             }
+            log::warn!("TCP sender lost connection to internal client");
         });
 
         // handles read operations from client
@@ -59,7 +58,11 @@ impl Tcp {
                     }
                 }
             }
+            log::warn!("TCP writer lost connection to external client");
         });
+
+        // drop receiver in write_queque so that disconnected channel is detectable
+        write_queque.drop_receiver();
 
         Ok(((read_queque, write_queque), addr))
     }

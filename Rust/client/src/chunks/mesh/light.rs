@@ -4,19 +4,7 @@ use protocol::blocks::Block;
 const LIGHT_REDUX: f32 = 1.0 / 4.0;
 
 fn get_block(x: usize, y: usize, z: usize, data: &ChunkData) -> Block {
-    if let Some(x) = data.get(x) {
-        if let Some(y) = x.get(y) {
-            if let Some(block) = y.get(z) {
-                *block
-            } else {
-                Block::None
-            }
-        } else {
-            Block::None
-        }
-    } else {
-        Block::None
-    }
+    data.get(x, y, z)
 }
 
 pub(super) fn left(x: usize, y: usize, z: usize, lights: &mut Vec<f32>, data: &ChunkData) {

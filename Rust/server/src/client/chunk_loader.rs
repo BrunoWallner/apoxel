@@ -1,13 +1,7 @@
 use crate::chunks::ChunkHandle;
 use crate::CONFIG;
-use protocol::chunk::Chunk;
-use protocol::chunk::CHUNK_SIZE;
-use protocol::event::*;
-use protocol::Token;
-use protocol::prelude::ChunkDelta;
-use protocol::{Coord, PlayerCoord};
+use protocol::prelude::*;
 use std::collections::BTreeSet;
-use crate::queque::Queque;
 
 pub(super) struct ChunkLoader {
     chunk_handle: ChunkHandle,
@@ -21,8 +15,8 @@ pub(super) struct ChunkLoader {
 impl ChunkLoader {
     pub fn new(chunk_handle: ChunkHandle, tcp_writer: Queque<ServerToClient>) -> Self {
         let last_load_pos = [0.0, 0.0, 0.0];
-        let chunk_load_queque = Queque::new();
-        let chunk_update_queque = Queque::new();
+        let chunk_load_queque = Queque::unbounded();
+        let chunk_update_queque = Queque::unbounded();
         ChunkLoader {
             chunk_handle,
             tcp_writer,
@@ -109,7 +103,7 @@ impl ChunkLoader {
         let mut chunk_updates: Vec<ChunkDelta> = Vec::new();
         // chunk load
         let mut sent = 0;
-        while let Some(chunk) = self.chunk_load_queque.try_recv() {
+        while let Ok(chunk) = self.chunk_load_queque.try_recv() {
             if protocol::calculate_chunk_distance(&origin, &chunk.coord) < CONFIG.chunks.render_distance as i64 {
                 self.chunks.insert(chunk.coord);
                 chunk_loads.push(chunk);
@@ -121,7 +115,7 @@ impl ChunkLoader {
         }
         // chunk update
         let mut sent = 0;
-        while let Some((chunk, important)) = self.chunk_update_queque.try_recv_with_meta() {
+        while let Ok((chunk, important)) = self.chunk_update_queque.try_recv_with_meta() {
             if important && protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
                 self.leftover.insert(chunk.0);
                 self

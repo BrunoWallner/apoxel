@@ -22,7 +22,7 @@ impl CaveGen {
             + 1.0)
             / 2.0;
 
-        let barrier: f64 = 0.66 + ((coord[1] as f64 - 32.0) / 32.0 / 3.0).clamp(0.0, 0.34);
+        let barrier: f64 = 0.55 + ((coord[1] as f64 - 32.0) / 32.0 / 2.0).clamp(0.0, 0.45);
 
         match noise {
             _ if noise > barrier => Block::Air,

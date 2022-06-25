@@ -1,4 +1,3 @@
-use crate::channel::*;
 use protocol::prelude::*;
 use bevy::prelude::Mesh;
 use std::collections::BTreeMap;
@@ -24,9 +23,8 @@ pub struct ChunkCommunicator {
 }
 impl ChunkCommunicator {
     pub fn new() -> Self {
-        let (internal_tx, internal_rx) = bounded_channel(1024);
-        let (external_tx, external_rx) = bounded_channel(1024);
-        let threadpool = threadpool::ThreadPool::new(2);
+        let (internal_tx, internal_rx) = bounded_channel(64);
+        let (external_tx, external_rx) = bounded_channel(64);
         init(external_tx, internal_rx);
         Self {
             sender: internal_tx,
@@ -46,12 +44,16 @@ impl ChunkCommunicator {
         self.sender.send(InternalEvent::Unload(coords)).unwrap();
     }
 
+    #[allow(dead_code)]
     pub fn get(&self) -> Option<ExternalEvent> {
-        self.receiver.recv()
+        self.receiver.recv().ok()
     }
 
     pub fn try_get(&self) -> Option<ExternalEvent> {
-        self.receiver.try_recv()
+        match self.receiver.try_recv() {
+            Ok(t) => Some(t),
+            Err(_) => None,
+        }
     }
 }
 
@@ -60,7 +62,7 @@ fn init(
     receiver: Receiver<InternalEvent>
 ) {
     thread::spawn(move || {
-        let pool = threadpool::ThreadPool::new(2);
+        let pool = threadpool::ThreadPool::new(8);
         let mut chunks: BTreeMap<Coord, Chunk> = BTreeMap::default();
         loop {
             match receiver.recv().unwrap() {

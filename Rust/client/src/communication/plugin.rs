@@ -14,6 +14,7 @@ impl Plugin for CommunicationPlugin {
         while let Some(event) = communicator.get_event() {
             match event {
                 Token(token) => {
+                    log::info!("logged in");
                     communicator.set_token(token);
                     break
                 },

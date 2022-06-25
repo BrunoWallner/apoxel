@@ -5,19 +5,14 @@ use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::mesh::Indices;
 
-use protocol::chunk::{CHUNK_SIZE, Chunk, ChunkData};
-use protocol::blocks::Block;
+use protocol::chunk::{CHUNK_SIZE, Chunk};
 use super::chunk_material::ATTRIBUTE_COLOR;
 use super::chunk_material::ATTRIBUTE_LIGHT;
-use noise::OpenSimplex;
-use noise::NoiseFn;
 
 // ca. 150 - 1200 µs
 pub fn generate(
     chunk: &Chunk,
 ) -> Mesh {
-    let noise = OpenSimplex::new();
-
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     let v_length = 8 * CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
@@ -37,7 +32,7 @@ pub fn generate(
                 let y: f32 = y1 as f32;
                 let z: f32= z1 as f32;
 
-                let block_category = chunk.data[x1][y1][z1].to_category();
+                let block_category = chunk.data.get(x1, y1, z1).to_category();
                 
                 // air
                 if block_category.0 != 0 {
@@ -73,7 +68,7 @@ pub fn generate(
                         sides += 1;
                     }
 
-                    let c = chunk.data[x1][y1][z1].to_color();
+                    let c = chunk.data.get(x1, y1, z1).to_color();
                     // let offset = noise.get([
                     //     (chunk.coord[0] as f64 * CHUNK_SIZE as f64 + x as f64) * 12.5,
                     //     (chunk.coord[1] as f64 * CHUNK_SIZE as f64 + y as f64) * 12.5,
@@ -111,42 +106,42 @@ const CHUNK_END: usize = CHUNK_SIZE - 1;
 /* returns true if specific side should be rendered */
 fn check_left(chunk: &Chunk, x: usize, y: usize, z: usize) -> bool {
     if x > 0 {
-        chunk.data[x - 1][y][z].transparency().is_some()
+        chunk.data.get(x - 1, y, z).transparency().is_some()
     } else {
         true
     }
 }
 fn check_right(chunk: &Chunk, x: usize, y: usize, z: usize) -> bool {
     if x < CHUNK_END {
-        chunk.data[x + 1][y][z].transparency().is_some()
+        chunk.data.get(x + 1, y, z).transparency().is_some()
     } else {
         true
     }
 }
 fn check_front(chunk: &Chunk, x: usize, y: usize, z: usize) -> bool {
     if z < CHUNK_END {
-        chunk.data[x][y][z + 1].transparency().is_some()
+        chunk.data.get(x, y, z + 1).transparency().is_some()
     } else {
         true
     }
 }
 fn check_back(chunk: &Chunk, x: usize, y: usize, z: usize) -> bool {
     if z > 0 {
-        chunk.data[x][y][z - 1].transparency().is_some()
+        chunk.data.get(x, y, z - 1).transparency().is_some()
     } else {
         true
     }
 }
 fn check_top(chunk: &Chunk, x: usize, y: usize, z: usize) -> bool {
     if y < CHUNK_END {
-        chunk.data[x][y + 1][z].transparency().is_some()
+        chunk.data.get(x, y + 1, z).transparency().is_some()
     } else {
         true
     }
 }
 fn check_bottom(chunk: &Chunk, x: usize, y: usize, z: usize) -> bool {
     if y > 0 {
-        chunk.data[x][y - 1][z].transparency().is_some()
+        chunk.data.get(x, y - 1, z).transparency().is_some()
     } else {
         true
     }

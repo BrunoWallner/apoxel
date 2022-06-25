@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-const BLOCK_COLORS: [[u8; 3]; 14] = [
+static BLOCK_COLORS: [[u8; 3]; 14] = [
     [0, 0, 0],
     [255, 255, 255],
     // terrain

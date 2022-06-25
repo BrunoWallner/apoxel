@@ -1,8 +1,6 @@
 mod generation;
 mod init;
 
-use crate::channel::*;
-use crate::queque::Queque;
 use protocol::prelude::*;
 use std::collections::HashSet;
 

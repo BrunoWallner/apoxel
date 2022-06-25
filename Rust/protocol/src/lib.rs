@@ -4,6 +4,7 @@ pub mod error;
 pub mod event;
 pub mod chunk;
 pub mod blocks;
+pub mod channel;
 
 const TCP_EVENT_BYTES: usize = 255;
 
@@ -54,4 +55,6 @@ pub mod prelude {
     pub use super::event::prelude::*;
     pub use super::chunk::*;
     pub use super::blocks::Block;
+    pub use super::channel::*;
+    pub use super::channel::*;
 }

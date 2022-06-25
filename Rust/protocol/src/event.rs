@@ -5,7 +5,6 @@ use super::chunk::Structure;
 use super::chunk::Chunk;
 use super::chunk::ChunkDelta;
 
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ClientToServer {
     Register{name: String},

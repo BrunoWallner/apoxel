@@ -1,8 +1,6 @@
 use super::generation::generate;
 use super::Instruction;
 use super::StoredChunk;
-use crate::channel::*;
-use crate::queque::Queque;
 use crate::CONFIG;
 use protocol::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -84,7 +82,7 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
             ),
         > = HashMap::default();
 
-        while let Some(instruction) = rx.recv() {
+        while let Ok(instruction) = rx.recv() {
             match instruction {
                 // INFO: main bottleneck in whole chunkhandle
                 PushSuperChunk {

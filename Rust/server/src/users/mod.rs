@@ -1,6 +1,6 @@
 mod init;
 
-use crate::channel::*;
+use protocol::prelude::*;
 use protocol::{PlayerCoord, Token};
 
 // type UserModFn = Arc<dyn Fn(&mut User) + Send + Sync>;
@@ -90,8 +90,8 @@ impl Users {
             .send(Instruction::Register { name, token: tx })
             .unwrap();
         match rx.recv() {
-            Some(success) => success,
-            None => None,
+            Ok(success) => success,
+            Err(_) => None,
         }
     }
 
@@ -117,8 +117,8 @@ impl Users {
             .send(Instruction::GetUser { token, user: tx })
             .unwrap();
         match rx.recv() {
-            Some(user) => user,
-            None => None,
+            Ok(user) => user,
+            Err(_) => None,
         }
     }
 

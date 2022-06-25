@@ -3,13 +3,27 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use super::blocks::Block;
 
-// bounded by `ChunkIndex`
 // currently has to have u8 size limit
 // I just dont want to use `as usize` as much
 pub const CHUNK_SIZE: usize = 64;
 
-// pub type ChunkData = Box<[[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE]>;
-pub type ChunkData = Vec<Vec<Vec<Block>>>;
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChunkData(Vec<Block>);
+impl ChunkData {
+    pub fn new() -> Self {
+        ChunkData(vec![Block::None; CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE])
+    }
+
+    pub fn get(&self, x: usize, y: usize, z: usize) -> Block {
+        match self.0.get(x + CHUNK_SIZE * (y + CHUNK_SIZE * z)) {
+            Some(t) => *t,
+            None => Block::None,
+        }
+    }
+    pub fn set(&mut self, x: usize, y: usize, z: usize, block: Block) {
+        self.0[x + CHUNK_SIZE * (y + CHUNK_SIZE * z)] = block;
+    }
+}
 
 
 // to save memory in ChunkDelta
@@ -41,7 +55,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn new(coord: Coord) -> Self {
         Self {
-            data: vec![vec![vec![Block::None; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
+            data: ChunkData::new(),
             coord,
         }
     }
@@ -49,8 +63,8 @@ impl Chunk {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    if other.data[x][y][z] != Block::None {
-                        self.data[x][y][z] = other.data[x][y][z];
+                    if other.data.get(x, y, z) != Block::None {
+                        self.data.set(x, y, z, other.data.get(x, y , z));
                     }
                 }
             }
@@ -61,7 +75,7 @@ impl Chunk {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    if self.data[x][y][z] != Block::None {
+                    if self.data.get(x, y, z) != Block::None {
                         empty = false;
                     }
                 }
@@ -74,9 +88,9 @@ impl Chunk {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
                 for z in 0..CHUNK_SIZE {
-                    if self.data[x][y][z] != other.data[x][y][z] {
+                    if self.data.get(x, y, z) != other.data.get(x, y, z) {
                         // WARN: only OK when CHUNK_SIZE <= 255
-                        delta.push(([x as u8, y as u8, z as u8], other.data[x][y][z]));
+                        delta.push(([x as u8, y as u8, z as u8], other.data.get(x, y, z)));
                     }
                 }
             }
@@ -86,7 +100,7 @@ impl Chunk {
     pub fn apply_delta(&mut self, delta: &ChunkDelta) {
         // INFO: might want to check if block is None
         for (coord, block) in delta.1.iter() {
-            self.data[coord[0] as usize][coord[1] as usize][coord[2] as usize] = *block;
+            self.data.set(coord[0] as usize, coord[1] as usize, coord[2] as usize, *block);
         }
     }
     // SIDES
@@ -94,7 +108,7 @@ impl Chunk {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
         for z in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
-                side[z][y] = self.data[0][y][z]
+                side[z][y] = self.data.get(0, y, z)
             }
         }
         side
@@ -103,7 +117,7 @@ impl Chunk {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
         for z in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
-                side[z][y] = self.data[CHUNK_SIZE - 1][y][z]
+                side[z][y] = self.data.get(CHUNK_SIZE - 1, y, z)
             }
         }
         side
@@ -112,7 +126,7 @@ impl Chunk {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
-                side[x][y] = self.data[x][y][CHUNK_SIZE - 1]
+                side[x][y] = self.data.get(x, y, CHUNK_SIZE - 1)
             }
         }
         side
@@ -121,7 +135,7 @@ impl Chunk {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
-                side[x][y] = self.data[x][y][0]
+                side[x][y] = self.data.get(x, y, 0)
             }
         }
         side
@@ -130,7 +144,7 @@ impl Chunk {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                side[x][z] = self.data[x][CHUNK_SIZE - 1][z]
+                side[x][z] = self.data.get(x, CHUNK_SIZE - 1, z)
             }
         }
         side
@@ -139,7 +153,7 @@ impl Chunk {
         let mut side = [[Block::None; CHUNK_SIZE]; CHUNK_SIZE];
         for x in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
-                side[x][z] = self.data[x][0][z]
+                side[x][z] = self.data.get(x, 0, z)
             }
         }
         side
@@ -173,7 +187,7 @@ impl SuperChunk {
         let (chunk, index) = get_chunk_coords(&coord);
 
         if let Some(c) = self.chunks.get(&chunk) {
-            return Some(c.data[index[0]][index[1]][index[2]]);
+            return Some(c.data.get(index[0], index[1], index[2]));
         } else {
             return None;
         }
@@ -183,10 +197,10 @@ impl SuperChunk {
             let (chunk, index) = get_chunk_coords(&coord);
 
             if let Some(c) = self.chunks.get_mut(&chunk) {
-                c.data[index[0]][index[1]][index[2]] = block;
+                c.data.set(index[0], index[1], index[2], block);
             } else {
                 let mut c = Chunk::new(chunk);
-                c.data[index[0]][index[1]][index[2]] = block;
+                c.data.set(index[0], index[1], index[2], block);
                 self.chunks.insert(chunk, c);
             }
         }
