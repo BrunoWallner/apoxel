@@ -79,15 +79,15 @@ pub struct Users {
 }
 impl Users {
     pub fn init() -> Self {
-        let (tx, rx) = channel();
+        let (tx, rx) = channel(None);
         init::init(rx);
         Self { sender: tx }
     }
 
     pub fn register(&self, name: String) -> Option<Token> {
-        let (tx, rx) = channel();
+        let (tx, rx) = channel(Some(1));
         self.sender
-            .send(Instruction::Register { name, token: tx })
+            .send(Instruction::Register { name, token: tx }, false)
             .unwrap();
         match rx.recv() {
             Ok(success) => success,
@@ -96,25 +96,25 @@ impl Users {
     }
 
     pub fn login(&self, token: Token) -> bool {
-        let (tx, rx) = channel();
+        let (tx, rx) = channel(Some(1));
         self.sender
-            .send(Instruction::Login { token, success: tx })
+            .send(Instruction::Login { token, success: tx }, false)
             .unwrap();
         rx.recv().unwrap_or(false)
     }
 
     pub fn logoff(&self, token: Token) -> bool {
-        let (tx, rx) = channel();
+        let (tx, rx) = channel(Some(1));
         self.sender
-            .send(Instruction::Logoff { token, success: tx })
+            .send(Instruction::Logoff { token, success: tx }, false)
             .unwrap();
         rx.recv().unwrap_or(false)
     }
 
     pub fn get_user(&self, token: Token) -> Option<User> {
-        let (tx, rx) = channel();
+        let (tx, rx) = channel(Some(1));
         self.sender
-            .send(Instruction::GetUser { token, user: tx })
+            .send(Instruction::GetUser { token, user: tx }, true)
             .unwrap();
         match rx.recv() {
             Ok(user) => user,
@@ -127,7 +127,7 @@ impl Users {
             .send(Instruction::ModUser {
                 token,
                 mod_instruction,
-            })
+            }, false)
             .unwrap();
     }
 }

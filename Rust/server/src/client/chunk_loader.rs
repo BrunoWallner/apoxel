@@ -5,24 +5,28 @@ use std::collections::BTreeSet;
 
 pub(super) struct ChunkLoader {
     chunk_handle: ChunkHandle,
-    tcp_writer: Queque<ServerToClient>,
+    tcp_sender: Sender<STC>,
     last_load_pos: PlayerCoord,
-    chunk_load_queque: Queque<Chunk>,
-    chunk_update_queque: Queque<ChunkDelta>,
+    chunk_load_sender: Sender<Chunk>,
+    chunk_load_receiver: Receiver<Chunk>,
+    chunk_update_sender: Sender<ChunkDelta>,
+    chunk_update_receiver: Receiver<ChunkDelta>,
     chunks: BTreeSet<Coord>,
     leftover: BTreeSet<Coord>,
 }
 impl ChunkLoader {
-    pub fn new(chunk_handle: ChunkHandle, tcp_writer: Queque<ServerToClient>) -> Self {
+    pub fn new(chunk_handle: ChunkHandle, tcp_sender: Sender<STC>) -> Self {
         let last_load_pos = [0.0, 0.0, 0.0];
-        let chunk_load_queque = Queque::unbounded();
-        let chunk_update_queque = Queque::unbounded();
+        let (chunk_load_sender, chunk_load_receiver) = channel(None);
+        let (chunk_update_sender, chunk_update_receiver) = channel(None);
         ChunkLoader {
             chunk_handle,
-            tcp_writer,
+            tcp_sender,
             last_load_pos,
-            chunk_load_queque,
-            chunk_update_queque,
+            chunk_load_sender,
+            chunk_load_receiver,
+            chunk_update_sender,
+            chunk_update_receiver,
             chunks: BTreeSet::default(),
             leftover: BTreeSet::default(),
         }
@@ -64,8 +68,8 @@ impl ChunkLoader {
             if !to_unload.is_empty() {
                 self.chunk_handle.unload_chunks(to_unload.clone(), token);
                 self
-                    .tcp_writer
-                    .send(ServerToClient::ChunkUnloads(to_unload), false)
+                    .tcp_sender
+                    .send(STC::ChunkUnloads(to_unload), false)
                     .unwrap();
             }
 
@@ -94,7 +98,7 @@ impl ChunkLoader {
                 chunk_update_coords
                     .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
 
-                self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_queque.clone(), self.chunk_update_queque.clone(), token);
+                self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_sender.clone(), self.chunk_update_sender.clone(), token);
             }
         }
 
@@ -103,7 +107,7 @@ impl ChunkLoader {
         let mut chunk_updates: Vec<ChunkDelta> = Vec::new();
         // chunk load
         let mut sent = 0;
-        while let Ok(chunk) = self.chunk_load_queque.try_recv() {
+        while let Ok(chunk) = self.chunk_load_receiver.try_recv() {
             if protocol::calculate_chunk_distance(&origin, &chunk.coord) < CONFIG.chunks.render_distance as i64 {
                 self.chunks.insert(chunk.coord);
                 chunk_loads.push(chunk);
@@ -115,12 +119,12 @@ impl ChunkLoader {
         }
         // chunk update
         let mut sent = 0;
-        while let Ok((chunk, important)) = self.chunk_update_queque.try_recv_with_meta() {
+        while let Ok((chunk, important)) = self.chunk_update_receiver.try_recv_with_meta() {
             if important && protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
                 self.leftover.insert(chunk.0);
                 self
-                .tcp_writer
-                    .send(ServerToClient::ChunkUpdates(vec![chunk]), true)
+                .tcp_sender
+                    .send(STC::ChunkUpdates(vec![chunk]), true)
                     .unwrap();
                 sent += 1;
                 if sent > CONFIG.chunks.chunks_per_cycle / 2 {
@@ -138,14 +142,14 @@ impl ChunkLoader {
 
         if !chunk_loads.is_empty() {
             self
-                .tcp_writer
-                .send(ServerToClient::ChunkLoads(chunk_loads.clone()), false)
+                .tcp_sender
+                .send(STC::ChunkLoads(chunk_loads.clone()), false)
                 .unwrap();
         }
         if !chunk_updates.is_empty() {
             self
-                .tcp_writer
-                .send(ServerToClient::ChunkUpdates(chunk_updates.clone()), false)
+                .tcp_sender
+                .send(STC::ChunkUpdates(chunk_updates.clone()), false)
                 .unwrap();
         }
     }

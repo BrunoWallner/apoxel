@@ -56,5 +56,4 @@ pub mod prelude {
     pub use super::chunk::*;
     pub use super::blocks::Block;
     pub use super::channel::*;
-    pub use super::channel::*;
 }

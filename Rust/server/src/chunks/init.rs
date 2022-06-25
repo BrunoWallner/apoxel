@@ -16,8 +16,8 @@ fn send_chunk_to_requester(
         (
             BTreeSet<Coord>,
             BTreeSet<Coord>,
-            Queque<Chunk>,
-            Queque<ChunkDelta>,
+            Sender<Chunk>,
+            Sender<ChunkDelta>,
         ),
     >,
     disallow_loading: bool,
@@ -77,8 +77,8 @@ pub(super) fn init(rx: Receiver<Instruction>, chunk_handle: super::ChunkHandle) 
             (
                 BTreeSet<Coord>,
                 BTreeSet<Coord>,
-                Queque<Chunk>,
-                Queque<ChunkDelta>,
+                Sender<Chunk>,
+                Sender<ChunkDelta>,
             ),
         > = HashMap::default();
 

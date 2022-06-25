@@ -33,8 +33,8 @@ enum Instruction {
         load_coords: Vec<Coord>,
         update_coords: Vec<Coord>,
         token: Token,
-        load_sender: Queque<Chunk>,
-        update_sender: Queque<ChunkDelta>,
+        load_sender: Sender<Chunk>,
+        update_sender: Sender<ChunkDelta>,
     },
     RequestUnloadChunk {
         coords: Vec<Coord>,
@@ -59,7 +59,7 @@ pub struct ChunkHandle {
 }
 impl ChunkHandle {
     pub fn init() -> Self {
-        let (tx, rx) = channel();
+        let (tx, rx) = channel(None);
         let handle = Self { sender: tx };
         init::init(rx, handle.clone());
         handle
@@ -69,8 +69,8 @@ impl ChunkHandle {
         &self,
         load_coords: Vec<Coord>,
         update_coords: Vec<Coord>,
-        load_sender: Queque<Chunk>,
-        update_sender: Queque<ChunkDelta>,
+        load_sender: Sender<Chunk>,
+        update_sender: Sender<ChunkDelta>,
         token: Token,
     ) {
         let _ = self.sender.send(Instruction::RequestChunks {
@@ -79,27 +79,27 @@ impl ChunkHandle {
             load_sender,
             update_sender,
             token,
-        });
+        }, false);
     }
 
     pub fn unload_chunks(&self, coords: Vec<Coord>, token: Token) {
         let _ = self
             .sender
-            .send(Instruction::RequestUnloadChunk { coords, token })
+            .send(Instruction::RequestUnloadChunk { coords, token }, false)
             .unwrap();
     }
 
     pub fn place_structure(&self, coord: Coord, structure: Structure, token: Token) {
         let _ = self
             .sender
-            .send(Instruction::PlaceStructure { coord, structure, token })
+            .send(Instruction::PlaceStructure { coord, structure, token }, true)
             .unwrap();
     }
 
     pub(crate) fn push_super_chunk(&self, super_chunk: SuperChunk, token: Token, important: bool) {
         let _ = self
             .sender
-            .send(Instruction::PushSuperChunk { super_chunk, token, important })
+            .send(Instruction::PushSuperChunk { super_chunk, token, important }, false)
             .unwrap();
     }
 }

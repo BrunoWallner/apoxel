@@ -26,36 +26,36 @@ pub(super) fn init(rx: Receiver<Instruction>) {
                     if !already_exist {
                         let (tok, user) = User::new(name);
                         users.insert(tok, user);
-                        let _ = token.send(Some(tok));
+                        let _ = token.send(Some(tok), false);
                     } else {
-                        let _ = token.send(None);
+                        let _ = token.send(None, false);
                     }
                 }
                 UserInstruction::Login { token, success } => {
                     if let Some(mut user) = users.get_mut(&token) {
                         if !user.online {
                             user.online = true;
-                            let _ = success.send(true);
+                            let _ = success.send(true, false);
                         } else {
-                            let _ = success.send(false);
+                            let _ = success.send(false, false);
                         }
                     } else {
-                        let _ = success.send(false);
+                        let _ = success.send(false, false);
                     }
                 }
                 UserInstruction::Logoff { token, success } => {
                     if let Some(mut user) = users.get_mut(&token) {
                         user.online = false;
-                        let _ = success.send(true);
+                        let _ = success.send(true, false);
                     } else {
-                        let _ = success.send(false);
+                        let _ = success.send(false, false);
                     }
                 }
                 UserInstruction::GetUser { token, user } => {
                     if let Some(usr) = users.get(&token) {
-                        let _ = user.send(Some(usr.clone()));
+                        let _ = user.send(Some(usr.clone()), false);
                     } else {
-                        let _ = user.send(None);
+                        let _ = user.send(None, false);
                     }
                 }
                 UserInstruction::ModUser {

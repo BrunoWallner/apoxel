@@ -4,7 +4,7 @@ use crossbeam_channel::{Sender as CrossSender, Receiver as CrossReceiver, select
 
 pub use crossbeam_channel::{SendError, RecvError, TryRecvError};
 
-pub fn new<T>(bound: Option<usize>) -> (Sender<T>, Receiver<T>) {
+pub fn channel<T>(bound: Option<usize>) -> (Sender<T>, Receiver<T>) {
     let (
         (sender_0, receiver_0),
         (sender_1, receiver_1)

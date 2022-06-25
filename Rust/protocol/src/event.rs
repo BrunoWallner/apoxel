@@ -6,7 +6,7 @@ use super::chunk::Chunk;
 use super::chunk::ChunkDelta;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ClientToServer {
+pub enum CTS {
     Register{name: String},
     Login{token: Token},
     Move{coord: PlayerCoord},
@@ -15,7 +15,7 @@ pub enum ClientToServer {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ServerToClient {
+pub enum STC {
     Error(ClientError),
     Token(Token),
     ChunkUnloads(Vec<Coord>),
@@ -26,13 +26,13 @@ pub enum ServerToClient {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Event {
     Invalid,
-    ClientToServer(ClientToServer),
-    ServerToClient(ServerToClient),
+    CTS(CTS),
+    STC(STC),
 }
 
 pub mod prelude {
-    pub use super::ClientToServer::{self, *};
-    pub use super::ServerToClient::{self, *};
+    pub use super::CTS::{self, *};
+    pub use super::STC::{self, *};
     pub use super::Event::*;
     pub use crate::error::ClientError;
 }

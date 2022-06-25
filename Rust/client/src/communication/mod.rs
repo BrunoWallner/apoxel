@@ -12,8 +12,8 @@ use tokio::runtime;
 
 pub struct Communicator {
     token: Token,
-    event_sender: Sender<ClientToServer>,
-    event_receiver: Receiver<ServerToClient>,
+    event_sender: Sender<CTS>,
+    event_receiver: Receiver<STC>,
 }
 impl Communicator {
     pub fn init<H: ToSocketAddrs>(host: H) -> Option<Self> {
@@ -28,8 +28,8 @@ impl Communicator {
                 let mut reader = Reader::new(read);
                 let mut writer = Writer::new(write);
 
-                let (ev_sender_tx, ev_sender_rx): (Sender<ClientToServer>, Receiver<ClientToServer>) = channel();
-                let (ev_receiver_tx, ev_receiver_rx) = channel();
+                let (ev_sender_tx, ev_sender_rx): (Sender<CTS>, Receiver<CTS>) = channel(None);
+                let (ev_receiver_tx, ev_receiver_rx) = channel(None);
 
                 // INFO: tokio::spawn might be invalid in this context, but should be fine
                 // rx
@@ -38,8 +38,8 @@ impl Communicator {
                         if let Ok(event) = reader.get_event().await {
                             let event = event;
                             match event {
-                                ServerToClient(event) => {
-                                    if ev_receiver_tx.send(event).is_err() {
+                                STC(event) => {
+                                    if ev_receiver_tx.send(event, false).is_err() {
                                         log::warn!("failed to receive TCP event");
                                         break 'receiving;
                                     }
@@ -56,7 +56,7 @@ impl Communicator {
                 tokio::spawn(async move {
                     'sending: loop {
                         if let Ok(event) = ev_sender_rx.recv() {
-                            if writer.send_event(&ClientToServer(event)).await.is_err() {
+                            if writer.send_event(&CTS(event)).await.is_err() {
                                 log::warn!("failed to send TCP event");
                                 break 'sending;
                             }
@@ -84,7 +84,7 @@ impl Communicator {
         self.token = token;
     }
 
-    pub fn get_event(&self) -> Option<ServerToClient> {
+    pub fn get_event(&self) -> Option<STC> {
         if let Ok(event) = self.event_receiver.recv() {
             Some(event)
         } else {
@@ -92,7 +92,7 @@ impl Communicator {
         }
     }
 
-    pub fn try_get_event(&self) -> Option<ServerToClient> {
+    pub fn try_get_event(&self) -> Option<STC> {
         if let Ok(event) = self.event_receiver.try_recv() {
             Some(event)
         } else {
@@ -100,8 +100,8 @@ impl Communicator {
         }
     }
 
-    pub fn send_event(&self, event: ClientToServer) {
-        if self.event_sender.send(event).is_err() {
+    pub fn send_event(&self, event: CTS) {
+        if self.event_sender.send(event, false).is_err() {
             log::warn!("failed to send event");
         }
     }

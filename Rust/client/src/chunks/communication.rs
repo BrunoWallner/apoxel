@@ -23,8 +23,8 @@ pub struct ChunkCommunicator {
 }
 impl ChunkCommunicator {
     pub fn new() -> Self {
-        let (internal_tx, internal_rx) = bounded_channel(64);
-        let (external_tx, external_rx) = bounded_channel(64);
+        let (internal_tx, internal_rx) = channel(Some(64));
+        let (external_tx, external_rx) = channel(Some(64));
         init(external_tx, internal_rx);
         Self {
             sender: internal_tx,
@@ -33,15 +33,15 @@ impl ChunkCommunicator {
     }
 
     pub fn load(&self, chunks: Vec<Chunk>) {
-        self.sender.send(InternalEvent::Load(chunks)).unwrap();
+        self.sender.send(InternalEvent::Load(chunks), false).unwrap();
     }
 
     pub fn update(&self, deltas: Vec<ChunkDelta>) {
-        self.sender.send(InternalEvent::Update(deltas)).unwrap();
+        self.sender.send(InternalEvent::Update(deltas), false).unwrap();
     }
 
     pub fn unload(&self, coords: Vec<Coord>) {
-        self.sender.send(InternalEvent::Unload(coords)).unwrap();
+        self.sender.send(InternalEvent::Unload(coords), false).unwrap();
     }
 
     #[allow(dead_code)]
@@ -75,7 +75,7 @@ fn init(
                             let sender_clone = sender.clone();
                             pool.execute(move || {
                                 let mesh = super::mesh::generate(&chunk_clone);
-                                sender_clone.send(ExternalEvent::Load((chunk_clone.coord, mesh))).unwrap();
+                                sender_clone.send(ExternalEvent::Load((chunk_clone.coord, mesh)), false).unwrap();
                             });
                             chunks.insert(chunk.coord, chunk.clone());
                         } else {
@@ -83,7 +83,7 @@ fn init(
                             let sender_clone = sender.clone();
                             pool.execute(move || {
                                 let mesh = super::mesh::generate(&chunk_clone);
-                                sender_clone.send(ExternalEvent::Load((chunk_clone.coord, mesh))).unwrap();
+                                sender_clone.send(ExternalEvent::Load((chunk_clone.coord, mesh)), false).unwrap();
                             });
                             chunks.insert(chunk.coord, chunk.clone());
                         }
@@ -98,7 +98,7 @@ fn init(
                             let sender_clone = sender.clone();
                             pool.execute(move || {
                                 let mesh = super::mesh::generate(&chunk_clone);
-                                sender_clone.send(ExternalEvent::Load((chunk_clone.coord, mesh))).unwrap();
+                                sender_clone.send(ExternalEvent::Load((chunk_clone.coord, mesh)), true).unwrap();
                             });
                         } else {
                             let mut chunk = Chunk::new(delta.0);
@@ -108,13 +108,13 @@ fn init(
                             let coord = delta.0;
                             pool.execute(move || {
                                 let mesh = super::mesh::generate(&chunk);
-                                sender_clone.send(ExternalEvent::Load((coord, mesh))).unwrap();
+                                sender_clone.send(ExternalEvent::Load((coord, mesh)), true).unwrap();
                             });
                         }
                     }
                 }
                 InternalEvent::Unload(coords) => {
-                    sender.send(ExternalEvent::Unload(coords)).unwrap();
+                    sender.send(ExternalEvent::Unload(coords), false).unwrap();
                 }
             }
         }

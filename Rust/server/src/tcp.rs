@@ -15,45 +15,46 @@ impl Tcp {
     }
 
     // blockingly accept new client
-    pub async fn accept(&self) -> io::Result<((Queque<ClientToServer>, Queque<ServerToClient>), SocketAddr)> {
+    pub async fn accept(&self) -> io::Result<((Sender<STC>, Receiver<CTS>), SocketAddr)> {
         let (stream, addr) = self.listener.accept().await?;
 
         let (r, w) = TcpStream::into_split(stream);
         let mut reader = reader::Reader::new(r);
         let mut writer = writer::Writer::new(w);
 
-        let read_queque: Queque<ClientToServer> = Queque::bounded(64);
-        let mut write_queque: Queque<ServerToClient> = Queque::bounded(64);
+        // POV: server to remote client
+        let (sender_tx, sender_rx) = channel(Some(64));
+        let (receiver_tx, receiver_rx) = channel(Some(64));
 
         // handles write operations to client
-        let w_q = write_queque.clone();
+        let rx = sender_rx.clone();
         tokio::spawn(async move {
             // WARN!: THIS BLOCKING READ IS PROBABLY BAD INSIDE ASYNC CONTEXT
-            while let Ok(event) = w_q.recv() {
-                writer.send_event(&ServerToClient(event)).await.unwrap();
+            while let Ok(event) = rx.recv() {
+                writer.send_event(&STC(event)).await.unwrap();
             }
             log::warn!("TCP sender lost connection to internal client");
         });
 
         // handles read operations from client
-        let r_q = read_queque.clone();
-        let w_q = write_queque.clone();
+        let tx = receiver_tx.clone();
+        let client_tx = sender_tx.clone();
         tokio::spawn(async move {
             while let Ok(event) = reader.get_event().await {
                 match event {
-                    ClientToServer(event) => {
+                    CTS(event) => {
                         // priotarisation
                         let important = match event {
-                            ClientToServer::PlaceStructure{..} => true,
+                            CTS::PlaceStructure{..} => true,
                             _ => false
                         };
-                        if r_q.send(event, important).is_err() {
+                        if tx.send(event, important).is_err() {
                             break
                         }
                     }
                     _ => {
                         log::warn!("{}, sent an invalid request, terminating connection ...", addr);
-                        let _ = w_q.send(ServerToClient::Error(ClientError::ConnectionReset), true);
+                        let _ = client_tx.send(STC::Error(ClientError::ConnectionReset), true);
                         break;
                     }
                 }
@@ -61,9 +62,6 @@ impl Tcp {
             log::warn!("TCP writer lost connection to external client");
         });
 
-        // drop receiver in write_queque so that disconnected channel is detectable
-        write_queque.drop_receiver();
-
-        Ok(((read_queque, write_queque), addr))
+        Ok(((sender_tx, receiver_rx), addr))
     }
 }

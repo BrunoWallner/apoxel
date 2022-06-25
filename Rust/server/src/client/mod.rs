@@ -4,10 +4,6 @@ use crate::chunks::ChunkHandle;
 use protocol::prelude::*;
 use crate::users::UserModInstruction;
 use crate::users::Users;
-use protocol::error::ClientError;
-use protocol::event::ServerToClient;
-use protocol::Token;
-use protocol::PlayerCoord;
 use std::net::SocketAddr;
 use tokio::time::sleep;
 use std::time::Duration;
@@ -20,8 +16,8 @@ const CLIENT_TICK_RATE: u64 = 5;
 // the client part runs in the tokio runtime, to make many simultanious connectins possible
 // all the handles run on seperate os threads, for performance predictability and ease of use reasons
 pub async fn init(
-    reader: Queque<ClientToServer>,
-    writer: Queque<ServerToClient>,
+    sender: Sender<STC>,
+    receiver: Receiver<CTS>,
     addr: SocketAddr,
     users: Users,
     chunk_handle: ChunkHandle,
@@ -30,26 +26,25 @@ pub async fn init(
     let mut user_name: Option<String> = None;
     let mut user_coord: Option<PlayerCoord> = None;
 
-    let mut chunk_loader = chunk_loader::ChunkLoader::new(chunk_handle.clone(), writer.clone());
+    let mut chunk_loader = chunk_loader::ChunkLoader::new(chunk_handle.clone(), sender.clone());
 
     'client: loop {
         // fetch every event that can be fetched but dont block
         'event_fetching: loop {
-            match reader.try_recv() {
+            match receiver.try_recv() {
                 Ok(event) => {
                     // log::info!("read: {} MB", reader.bytes_read() as f64 / 1_000_000.0);
-                    use protocol::event::ClientToServer::*;
                     match event {
                         Register { name } => {
                             if let Some(token) = users.register(name.clone()) {
                                 user_token = Some(token);
                                 user_name = Some(name);
-                                writer
-                                    .send(ServerToClient::Token(token), false)
+                                sender
+                                    .send(STC::Token(token), false)
                                     .unwrap();
                             } else {
-                                writer
-                                    .send(ServerToClient::Error(ClientError::Register), false)
+                                sender
+                                    .send(STC::Error(ClientError::Register), false)
                                     .unwrap();
                             }
                         }
@@ -69,8 +64,8 @@ pub async fn init(
                                     None => None,
                                 };
                             } else {
-                                writer
-                                    .send(ServerToClient::Error(ClientError::Login), false)
+                                sender
+                                    .send(STC::Error(ClientError::Login), false)
                                     .unwrap();
                             }
                         }
@@ -85,8 +80,8 @@ pub async fn init(
                                     user_name.clone().unwrap_or_else(|| String::from("")),
                                     addr
                                 );
-                                writer
-                                    .send(ServerToClient::Error(ClientError::ConnectionReset), false)
+                                sender
+                                    .send(STC::Error(ClientError::ConnectionReset), false)
                                     .unwrap();
                                 break;
                             }
@@ -100,8 +95,8 @@ pub async fn init(
                                     user_name.clone().unwrap_or_else(|| String::from("")),
                                     addr
                                 );
-                                writer
-                                    .send(ServerToClient::Error(ClientError::ConnectionReset), false)
+                                sender
+                                    .send(STC::Error(ClientError::ConnectionReset), false)
                                     .unwrap();
                                 break;
                             }
