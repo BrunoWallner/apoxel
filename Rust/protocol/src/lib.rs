@@ -50,7 +50,7 @@ pub fn player_coord_to_coord(player_coord: PlayerCoord) -> Coord {
 }
 
 pub mod prelude {
-    pub use super::{Token, Coord, PlayerCoord};
+    pub use super::{*, Token, Coord, PlayerCoord};
     pub use super::error::*;
     pub use super::event::prelude::*;
     pub use super::chunk::*;

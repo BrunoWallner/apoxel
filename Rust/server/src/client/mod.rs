@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use log::*;
 
-const CLIENT_TICK_RATE: u64 = 5;
+const CLIENT_TICK_RATE: u64 = 10;
 
 // this function acts as kind of like a bridge between sync and async code
 // the client part runs in the tokio runtime, to make many simultanious connectins possible
-// all the handles run on seperate os threads, for performance predictability and ease of use reasons
+// all the handles run on seperate os threads, for performance predictability and ease of use
 pub async fn init(
     sender: Sender<STC>,
     receiver: Receiver<CTS>,
@@ -116,10 +116,14 @@ pub async fn init(
         // chunk request
         if let Some(coord) = user_coord {
             if let Some(token) = user_token {
-                chunk_loader.update_position(coord, token);
+                chunk_loader.update_position(coord);
+                chunk_loader.calculate_chunks(token);
+                chunk_loader.request_chunks(token);
+                chunk_loader.receive_chunks();
+                chunk_loader.unload(token);
+                chunk_loader.moved = false;
             }
         }
-        log::info!("client tick");
         sleep(Duration::from_millis(1000 / CLIENT_TICK_RATE)).await;
     }
     // USER DISCONNECTION HANDLING
@@ -127,5 +131,4 @@ pub async fn init(
         users.logoff(token);
         chunk_loader.unload_all_chunks(token);
     }
-    log::info!("client exit");
 }

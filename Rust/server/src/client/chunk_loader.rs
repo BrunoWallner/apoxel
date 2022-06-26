@@ -6,17 +6,20 @@ use std::collections::BTreeSet;
 pub(super) struct ChunkLoader {
     chunk_handle: ChunkHandle,
     tcp_sender: Sender<STC>,
-    last_load_pos: PlayerCoord,
+    last_load_pos: Coord,
     chunk_load_sender: Sender<Chunk>,
     chunk_load_receiver: Receiver<Chunk>,
     chunk_update_sender: Sender<ChunkDelta>,
     chunk_update_receiver: Receiver<ChunkDelta>,
     chunks: BTreeSet<Coord>,
     leftover: BTreeSet<Coord>,
+    chunk_pos: Coord,
+    pub moved: bool,
+    chunk_load_queque: Vec<Coord>,
 }
 impl ChunkLoader {
     pub fn new(chunk_handle: ChunkHandle, tcp_sender: Sender<STC>) -> Self {
-        let last_load_pos = [0.0, 0.0, 0.0];
+        let last_load_pos = [0, 0, 0];
         let (chunk_load_sender, chunk_load_receiver) = channel(None);
         let (chunk_update_sender, chunk_update_receiver) = channel(None);
         ChunkLoader {
@@ -29,38 +32,88 @@ impl ChunkLoader {
             chunk_update_receiver,
             chunks: BTreeSet::default(),
             leftover: BTreeSet::default(),
+            chunk_pos: [0, 0, 0],
+            moved: true,
+            chunk_load_queque: Vec::new(),
         }
     }
 
     pub fn set_player_pos(&mut self, pos: PlayerCoord) {
-        self.last_load_pos = [
-            pos[0],
-            pos[1] + CHUNK_SIZE as f64 + 1.0, // will trigger chunk loading
-            pos[2],
-        ];
+        let mut coord = get_chunk_coords(&player_coord_to_coord(pos)).0;
+        coord[1] += 1;
+        self.last_load_pos = coord;
     }
 
-    pub fn update_position(&mut self, pos: PlayerCoord, token: Token) {
-        let origin =
+    pub fn update_position(&mut self, pos: PlayerCoord) {
+        let chunk_pos =
             protocol::chunk::get_chunk_coords(&[pos[0] as i64, pos[1] as i64, pos[2] as i64]).0;
+        self.chunk_pos = chunk_pos;
 
+        let distance = calculate_chunk_distance(&chunk_pos, &self.last_load_pos);
+        if distance >= 1 {
+            self.moved = true;
+            self.last_load_pos = chunk_pos;
+        }
+    }
+
+    pub fn calculate_chunks(&mut self, token: Token) {
+        if self.moved {
+            /* --- LOAD --- */
+            let mut chunk_update_coords: Vec<Coord> = Vec::new();
+            let offset = CONFIG.chunks.render_distance as i64;
+            for x in self.chunk_pos[0] - offset..=self.chunk_pos[0] + offset {
+                for y in self.chunk_pos[1] / 2 - offset..=self.chunk_pos[1] / 2 + offset {
+                    for z in self.chunk_pos[2] - offset..=self.chunk_pos[2] + offset {
+                        let coord = [x, y, z];
+                        if protocol::calculate_chunk_distance(&self.chunk_pos, &coord) < offset {
+                            if !self.chunks.contains(&coord) && !self.chunk_load_queque.contains(&coord) {
+                                self.chunk_load_queque.push(coord);
+                                chunk_update_coords.push(coord);
+                            } else {
+                                chunk_update_coords.push(coord);
+                            }
+                        }
+                    }
+                }
+            }
+            if !self.chunk_load_queque.is_empty() || !chunk_update_coords.is_empty() {
+                chunk_update_coords
+                    .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &self.chunk_pos));
+
+                self.chunk_load_queque
+                    .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &self.chunk_pos));
+
+                self.chunk_handle.set_update_chunks(chunk_update_coords, self.chunk_update_sender.clone(), token);
+            }
+        }
+    }
+
+    pub fn request_chunks(&mut self, token: Token) {
+        // sort and send the chunks, which are marked to load to chunk handle
+        if !self.chunk_load_queque.is_empty() {
+            let coord_amount = CONFIG.chunks.chunks_per_cycle as usize;
+            let coords = if self.chunk_load_queque.len() > coord_amount {
+                self.chunk_load_queque.drain(0..coord_amount)
+            } else {
+                self.chunk_load_queque.drain(0..)
+            }.as_slice().to_vec();
+            self.chunk_handle.push_load_chunks(coords, self.chunk_load_sender.clone(), token);
+        }
+    }
+
+    pub fn unload(&mut self, token: Token) {
         // load and unload chunks
-        let mut chunk_load_coords: Vec<Coord> = Vec::new();
-        let mut chunk_update_coords: Vec<Coord> = Vec::new();
-        let distance: f64 = protocol::calculate_distance(&pos, &self.last_load_pos);
-        if distance as usize > CHUNK_SIZE {
-            self.last_load_pos = pos;
-
+        if self.moved {
             /* --- UNLOAD --- */
             let mut to_unload: Vec<Coord> = Vec::new();
             for chunk in self.chunks.clone().into_iter() {
-                if protocol::calculate_chunk_distance(&chunk, &origin) > CONFIG.chunks.render_distance as i64 + 1 {
+                if protocol::calculate_chunk_distance(&chunk, &self.chunk_pos) > CONFIG.chunks.render_distance as i64 + 1 {
                     self.chunks.remove(&chunk);
                     to_unload.push(chunk);
                 }
             }
             for chunk in self.leftover.clone().into_iter() {
-                if protocol::calculate_chunk_distance(&chunk, &origin) > CONFIG.chunks.render_distance as i64 + 1 {
+                if protocol::calculate_chunk_distance(&chunk, &self.chunk_pos) > CONFIG.chunks.render_distance as i64 + 1 {
                     self.chunks.remove(&chunk);
                     to_unload.push(chunk);
                 }
@@ -72,43 +125,17 @@ impl ChunkLoader {
                     .send(STC::ChunkUnloads(to_unload), false)
                     .unwrap();
             }
-
-            /* --- LOAD --- */
-            let offset = CONFIG.chunks.render_distance as i64;
-            for x in origin[0] - offset..=origin[0] + offset {
-                for y in origin[1] - offset..=origin[1] + offset {
-                    for z in origin[2] - offset..=origin[2] + offset {
-                        let coord = [x, y, z];
-                        if protocol::calculate_chunk_distance(&origin, &coord) < offset {
-                            if !self.chunks.contains(&coord) {
-                                chunk_load_coords.push(coord);
-                                chunk_update_coords.push(coord);
-                            } else {
-                                chunk_update_coords.push(coord);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // sort and send the chunks, which are marked to load to chunk handle
-            if !chunk_load_coords.is_empty() || !chunk_update_coords.is_empty() {
-                chunk_load_coords
-                    .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
-                chunk_update_coords
-                    .sort_unstable_by_key(|key| protocol::calculate_chunk_distance(key, &origin));
-
-                self.chunk_handle.request_chunks(chunk_load_coords, chunk_update_coords, self.chunk_load_sender.clone(), self.chunk_update_sender.clone(), token);
-            }
         }
+    }
 
+    pub fn receive_chunks(&mut self) {
         // Receiving and sending to client
         let mut chunk_loads: Vec<Chunk> = Vec::new();
         let mut chunk_updates: Vec<ChunkDelta> = Vec::new();
         // chunk load
         let mut sent = 0;
         while let Ok(chunk) = self.chunk_load_receiver.try_recv() {
-            if protocol::calculate_chunk_distance(&origin, &chunk.coord) < CONFIG.chunks.render_distance as i64 {
+            if protocol::calculate_chunk_distance(&self.chunk_pos, &chunk.coord) < CONFIG.chunks.render_distance as i64 {
                 self.chunks.insert(chunk.coord);
                 chunk_loads.push(chunk);
                 sent += 1;
@@ -120,7 +147,7 @@ impl ChunkLoader {
         // chunk update
         let mut sent = 0;
         while let Ok((chunk, important)) = self.chunk_update_receiver.try_recv_with_meta() {
-            if important && protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
+            if important && protocol::calculate_chunk_distance(&self.chunk_pos, &chunk.0) < CONFIG.chunks.render_distance as i64 {
                 self.leftover.insert(chunk.0);
                 self
                 .tcp_sender
@@ -130,7 +157,7 @@ impl ChunkLoader {
                 if sent > CONFIG.chunks.chunks_per_cycle / 2 {
                     break;
                 } 
-            } else if protocol::calculate_chunk_distance(&origin, &chunk.0) < CONFIG.chunks.render_distance as i64 {
+            } else if protocol::calculate_chunk_distance(&self.chunk_pos, &chunk.0) < CONFIG.chunks.render_distance as i64 {
                 self.leftover.insert(chunk.0);
                 chunk_updates.push(chunk);
                 sent += 1;

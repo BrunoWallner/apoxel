@@ -62,7 +62,7 @@ fn setup(
 fn update_player(
     player: Query<(&Transform, &player::Player)>,
     communicator: Res<Communicator>,
-    input: Res<Input<KeyCode>>,
+    input: Res<Input<MouseButton>>,
     mut tick: ResMut<Tick>,
 ) {
     for (transform, _) in player.iter().next() {
@@ -71,9 +71,9 @@ fn update_player(
             let pos = transform.translation;
             let coord = [pos.x as f64, pos.y as f64, pos.z as f64];
             communicator.send_event(Move{coord});
-    
-            if input.pressed(KeyCode::P) {
-                let size: i64 = 32;
+
+            let size: i64 = 24;
+            if input.just_pressed(MouseButton::Left) {
                 let mut structure = Structure::new([size as usize, size as usize, size as usize]);
                 for x in 0..size {
                     for y in 0..size {
@@ -81,6 +81,20 @@ fn update_player(
                             let coord = [x, y, z];
                             if protocol::calculate_chunk_distance(&coord, &[size / 2, size / 2, size / 2]) < size / 2 {
                                 structure.place([x as usize, y as usize, z as usize], Block::Air);
+                            }
+                        }
+                    }
+                }
+                let coord = [pos.x as i64, pos.y as i64 - size / 2, pos.z as i64];
+                communicator.send_event(PlaceStructure{coord, structure});
+            } else if input.just_pressed(MouseButton::Right) {
+                let mut structure = Structure::new([size as usize, size as usize, size as usize]);
+                for x in 0..size {
+                    for y in 0..size {
+                        for z in 0..size {
+                            let coord = [x, y, z];
+                            if protocol::calculate_chunk_distance(&coord, &[size / 2, size / 2, size / 2]) < size / 2 {
+                                structure.place([x as usize, y as usize, z as usize], Block::AppleTreeWood);
                             }
                         }
                     }

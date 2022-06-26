@@ -33,7 +33,6 @@ impl Tcp {
             while let Ok(event) = rx.recv() {
                 writer.send_event(&STC(event)).await.unwrap();
             }
-            log::warn!("TCP sender lost connection to internal client");
         });
 
         // handles read operations from client
@@ -53,13 +52,12 @@ impl Tcp {
                         }
                     }
                     _ => {
-                        log::warn!("{}, sent an invalid request, terminating connection ...", addr);
+                        log::warn!("{}, sent an invalid TCP request, terminating connection ...", addr);
                         let _ = client_tx.send(STC::Error(ClientError::ConnectionReset), true);
                         break;
                     }
                 }
             }
-            log::warn!("TCP writer lost connection to external client");
         });
 
         Ok(((sender_tx, receiver_rx), addr))

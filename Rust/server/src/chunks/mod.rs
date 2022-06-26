@@ -29,11 +29,14 @@ impl StoredChunk {
 
 #[derive(Debug, Clone)]
 enum Instruction {
-    RequestChunks {
+    PushLoadChunks {
         load_coords: Vec<Coord>,
-        update_coords: Vec<Coord>,
         token: Token,
         load_sender: Sender<Chunk>,
+    },
+    SetUpdateChunks {
+        update_coords: Vec<Coord>,
+        token: Token,
         update_sender: Sender<ChunkDelta>,
     },
     RequestUnloadChunk {
@@ -65,18 +68,27 @@ impl ChunkHandle {
         handle
     }
 
-    pub fn request_chunks(
+    pub fn push_load_chunks(
         &self,
         load_coords: Vec<Coord>,
-        update_coords: Vec<Coord>,
         load_sender: Sender<Chunk>,
+        token: Token,
+    ) {
+        let _ = self.sender.send(Instruction::PushLoadChunks {
+            load_coords,
+            load_sender,
+            token,
+        }, false);
+    }
+
+    pub fn set_update_chunks(
+        &self,
+        update_coords: Vec<Coord>,
         update_sender: Sender<ChunkDelta>,
         token: Token,
     ) {
-        let _ = self.sender.send(Instruction::RequestChunks {
-            load_coords,
+        let _ = self.sender.send(Instruction::SetUpdateChunks {
             update_coords,
-            load_sender,
             update_sender,
             token,
         }, false);
